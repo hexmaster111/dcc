@@ -32,6 +32,7 @@ int main(int argc, char *argv[])
   int ch;
   GameState gs = {0};
   game_init(&gs);
+  game_load_section(&gs, "section");
 
   initscr();            /* Start curses mode 		*/
   start_color();        /* Start the color functionality */
@@ -124,15 +125,24 @@ void render(GameState_ptr gs, WIN *win)
 {
   // TODO: RENDER floor, walls, etc
 
-  for (int i = 0; i < gs->section_count; i++)
+  for (int i = 0; i < gs->sections.count; i++)
   {
-    for (int y = 1; y < gs->sections[i].bounds.size.h; y++)
+    SECTION s = gs->sections.s[i];
+
+    for (int y = 1; y < s.bounds.size.h; y++)
     {
-      for (int x = 1; x < gs->sections[i].bounds.size.w; x++)
+      for (int x = 1; x < s.bounds.size.w; x++)
       {
-        mvprintw(gs->sections[i].bounds.pos.y + win->starty + y, gs->sections[i].bounds.pos.x + win->startx + x, " ");
+        mvprintw(s.bounds.pos.y + win->starty + y,
+                 s.bounds.pos.x + win->startx + x, " ");
       }
     }
+  }
+
+  // Render section setpeaces
+  for (int i = 0; i < gs->sections.count; i++)
+  {
+    SECTION *s = &gs->sections.s[i];
   }
 
 #ifdef DEV
@@ -146,13 +156,14 @@ void render(GameState_ptr gs, WIN *win)
            gs->player.pos.x, gs->player.pos.y);
 
   // render the room outlines
-  for (int i = 0; i < gs->section_count; i++)
+  for (int i = 0; i < gs->sections.count; i++)
   {
-    int x = gs->sections[i].bounds.pos.x;
-    int y = gs->sections[i].bounds.pos.y;
-    int w = gs->sections[i].bounds.size.w;
-    int h = gs->sections[i].bounds.size.h;
-    SECTION *s = &gs->sections[i];
+
+    SECTION s = gs->sections.s[i];
+    int x = s.bounds.pos.x;
+    int y = s.bounds.pos.y;
+    int w = s.bounds.size.w;
+    int h = s.bounds.size.h;
     line_y++;
     mvprintw(line_y, line_x, "  section %d: x:%d y:%d w:%d h:%d", i, x, y, w, h);
     mvprintw(y + win->starty, x + win->startx, "+");
@@ -160,20 +171,20 @@ void render(GameState_ptr gs, WIN *win)
     mvprintw(y + win->starty + h, x + win->startx, "+");
     mvprintw(y + win->starty + h, x + win->startx + w, "+");
     // render section exit with #
-    if (0 < s->exits.count)
+    if (0 < s.exits.count)
     {
       line_y++;
     }
-    for (int j = 0; j < s->exits.count; j++)
+    for (int j = 0; j < s.exits.count; j++)
     {
-      EXIT *e = &s->exits.exits[j];
+      EXIT *e = &s.exits.exits[j];
       mvprintw(line_y, line_x + 10, "x: %d, y: %d",
                e->pos.x,
                e->pos.y);
 
       mvaddch(
-          s->bounds.pos.y + e->pos.y,
-          s->bounds.pos.x + e->pos.x,
+          s.bounds.pos.y + e->pos.y,
+          s.bounds.pos.x + e->pos.x,
           '#');
     }
   }

@@ -41,20 +41,25 @@ typedef struct section_t
 {
     RECT bounds;
     EXIT_LIST exits;
-
+    char *render_data;
 } SECTION;
 
+typedef struct sectionlist_t
+{
+    int count;
+    SECTION *s;
+} SECTION_LIST;
+
 /// @brief Game state
-#define def_section_count 4
 typedef struct gamestate_t
 {
     PLAYER player;
-    int section_count;
-    SECTION sections[def_section_count]; // TODO: dynamic array
+    SECTION_LIST sections;
 } GameState, *GameState_ptr;
 
 void game_init(GameState_ptr);
 int game_proc_keypress(GameState_ptr, int);
 void game_free(GameState_ptr);
+void game_load_section(GameState_ptr gs, char *filepath);
 
 #endif // __GAME_H

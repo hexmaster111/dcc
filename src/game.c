@@ -1,31 +1,22 @@
 #include "game.h"
 #include <curses.h>
+#include "assert.h"
+#include <string.h>
+#include <dirent.h>
+
+#ifndef DT_REG
+#define DT_REG 8 // idk why, but this wasnt defined in my dirent.h but it compiled fine
+#endif
 
 void game_init(GameState_ptr gs)
 {
     gs->player.pos.x = 17;
     gs->player.pos.y = 17;
-
-    gs->sections[0].bounds.pos.x = 15;
-    gs->sections[0].bounds.pos.y = 10;
-    gs->sections[0].bounds.size.w = 10;
-    gs->sections[0].bounds.size.h = 10;
-
-    gs->sections[0].exits.count = 1;
-    gs->sections[0].exits.exits = malloc(sizeof(EXIT) * gs->sections[0].exits.count);
-    gs->sections[0].exits.exits[0].pos.x = 2;
-    gs->sections[0].exits.exits[0].pos.y = 2;
-
-    gs->sections[1].bounds.pos.x = 30;
-    gs->sections[1].bounds.pos.y = 25;
-    gs->sections[1].bounds.size.w = 15;
-    gs->sections[1].bounds.size.h = 15;
-    gs->section_count = def_section_count;
+    gs->sections.count = 0;
 };
 
 void game_free(GameState_ptr gs)
 {
-    free(gs->sections[0].exits.exits);
 }
 
 int game_proc_keypress(GameState_ptr gs, int ch)
@@ -47,4 +38,194 @@ int game_proc_keypress(GameState_ptr gs, int ch)
     }
 
     return 0; // non 0 to quit
+}
+
+struct parser_state
+{
+    int curr;
+    bool parsed_header;
+    bool got_header_p0; //[ - start header
+    bool got_header_p1; //( - start arg
+    bool got_header_p2; //) - end arg
+    bool got_header_p3; //] - end header
+
+    int curr_arg;
+    int arg[4];
+
+    char *header_item_type;
+
+    int buff_pos;
+    char buffer[30 * 30];
+};
+
+struct building_args
+{
+    int type;
+    WH wh;
+};
+
+// NULL on OK
+const char *__load_single_section(SECTION *section, char *file)
+{
+    FILE *f = fopen(file, "r");
+    struct parser_state p = {};
+    const char *err = NULL;
+
+    if (f == NULL)
+    {
+        err = "Error opening file";
+        goto end;
+    }
+
+    while (p.curr = fgetc(f))
+    {
+        if (!p.got_header_p3)
+        {
+
+            if (p.curr == EOF)
+            {
+                err = "got EOF reading header";
+                goto end;
+            }
+            if (p.curr == '\n')
+                continue;
+
+            if (!p.got_header_p0)
+            {
+                if (p.curr != '[')
+                    continue;
+
+                p.got_header_p0 = true;
+                continue;
+            }
+
+            // we are reading what kind of item this is
+            if (p.got_header_p0 && !p.got_header_p1)
+            {
+
+                if (p.curr == '(')
+                {
+                    // we found the end of the string, copy the header into the state
+                    p.header_item_type = strdup(p.buffer);
+                    p.got_header_p1 = true;
+                    p.buff_pos = 0;
+                    p.buffer[p.buff_pos] = '\0';
+                    continue;
+                }
+
+                p.buffer[p.buff_pos] = p.curr;
+                p.buff_pos++;
+                continue;
+            }
+
+            if (p.got_header_p1 && !p.got_header_p2)
+            {
+                if (p.curr == ' ')
+                    continue;
+
+                // read to ) or ,
+                if (p.curr == ',')
+                {
+                    // save the arg !!COULD BE INDEX OUT OF RAGE HERE!!
+                    p.arg[p.curr_arg] = atoi(p.buffer);
+                    // inc curr
+                    p.curr_arg++;
+
+                    // reset buff
+                    p.buff_pos = 0;
+                    p.buffer[p.buff_pos] = '\0';
+                    continue;
+                }
+
+                if (p.curr == ')')
+                {
+                    p.got_header_p2 = true;
+
+                    // save the arg !!COULD BE INDEX OUT OF RAGE HERE!!
+                    p.arg[p.curr_arg] = atoi(p.buffer);
+                    // inc curr
+                    p.curr_arg++;
+
+                    p.buff_pos = 0;
+                    p.buffer[p.buff_pos] = '\0';
+                    continue;
+                }
+
+                p.buffer[p.buff_pos] = p.curr;
+                p.buff_pos++;
+                continue;
+            }
+
+            if (p.got_header_p2 && !p.got_header_p3)
+            {
+                if (p.curr == ' ')
+                    continue;
+
+                // read the final ']'
+                if (p.curr == ']')
+                {
+                    p.got_header_p3 = true;
+                    continue;
+                }
+            }
+            continue;
+        }
+
+        // types "building"
+
+        if (strcmp(p.header_item_type, "building") == 0)
+        {
+            // todo parse building
+            struct building_args a = {.wh.w = p.arg[1], .wh.h = p.arg[2], .type = p.arg[0]};
+            section->bounds.size = a.wh;
+            section->bounds.pos.x = 10;
+            section->bounds.pos.y = 10;
+            int expected_chars_count = a.wh.w * a.wh.h;
+            // stream in the data from the file into the sections render data
+            int chars_in = 0;
+            p.buffer[p.]
+        }
+    }
+
+end:
+    fclose(f);
+    if (err != NULL)
+        printf("error reading sec %s", err);
+    return err;
+}
+
+void game_load_section(GameState_ptr gs, char *folder)
+{
+    // find all the .sec files, load them
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(folder);
+    if (!d)
+    {
+        printf("Error opening directory: %s\n", folder);
+        return;
+    }
+
+    while ((dir = readdir(d)) != NULL)
+    {
+        if (dir->d_type != DT_REG)
+            continue;
+
+        char *ext = strrchr(dir->d_name, '.');
+        if (ext != NULL && strcmp(ext, ".sec") != 0)
+            continue;
+
+        char *filepath = malloc(strlen(folder) + strlen(dir->d_name) + 2);
+        strcpy(filepath, folder);
+        strcat(filepath, "/");
+        strcat(filepath, dir->d_name);
+        printf("Loading section: %s\n", filepath);
+        gs->sections.count++;
+        gs->sections.s = realloc(gs->sections.s, sizeof(SECTION) * gs->sections.count);
+        SECTION *s = &gs->sections.s[gs->sections.count - 1];
+        __load_single_section(s, filepath);
+        free(filepath);
+    }
+
+    closedir(d);
 }
