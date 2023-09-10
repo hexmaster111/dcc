@@ -77,7 +77,7 @@ const char *__load_single_section(SECTION *section, char *file)
         goto end;
     }
 
-    while (p.curr = fgetc(f))
+    while ((p.curr = fgetc(f)) != -1)
     {
         if (!p.got_header_p3)
         {
@@ -176,14 +176,16 @@ const char *__load_single_section(SECTION *section, char *file)
         if (strcmp(p.header_item_type, "building") == 0)
         {
             // todo parse building
-            struct building_args a = {.wh.w = p.arg[1], .wh.h = p.arg[2], .type = p.arg[0]};
-            section->bounds.size = a.wh;
             section->bounds.pos.x = 10;
             section->bounds.pos.y = 10;
+
+            struct building_args a = {.wh.w = p.arg[1], .wh.h = p.arg[2], .type = p.arg[0]};
+            section->bounds.size = a.wh;
             int expected_chars_count = a.wh.w * a.wh.h;
-            // stream in the data from the file into the sections render data
-            int chars_in = 0;
-            p.buffer[p.]
+
+            // TODO: stream in the data from the file into the sections render data
+            // TODO: When this is not a const char, we should strcpy and not just assign the ptr
+            section->render_data.c = "##########\n#        #\n#        #\n#        #\n#  LAB   #\n#        #\n#        #\n#        #\n#        #\n##########";
         }
     }
 

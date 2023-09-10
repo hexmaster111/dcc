@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#define newline '\n'
+
 typedef struct point_t
 {
     unsigned int x, y;
@@ -12,7 +14,10 @@ typedef struct point_t
 
 typedef struct widthheight_t
 {
-    unsigned int w, h;
+    // Could be thought of as cols
+    unsigned int w;
+    // could be thought of as rows or lines
+    unsigned int h;
 } WH;
 
 typedef struct rect_t
@@ -37,11 +42,16 @@ typedef struct exit_list_t
     EXIT *exits;
 } EXIT_LIST;
 
+typedef struct string_t
+{
+    char *c;
+} STRING;
+
 typedef struct section_t
 {
     RECT bounds;
     EXIT_LIST exits;
-    char *render_data;
+    STRING render_data;
 } SECTION;
 
 typedef struct sectionlist_t

@@ -1,6 +1,8 @@
 
 #include <ncurses.h>
 #include "game.h"
+#include "assert.h"
+#include <string.h>
 
 typedef struct _win_border_struct
 {
@@ -129,20 +131,41 @@ void render(GameState_ptr gs, WIN *win)
   {
     SECTION s = gs->sections.s[i];
 
+    XY org = {.x = s.bounds.pos.x + win->startx,
+              .y = s.bounds.pos.y + win->starty};
+
+    // clear the rect
     for (int y = 1; y < s.bounds.size.h; y++)
     {
       for (int x = 1; x < s.bounds.size.w; x++)
       {
-        mvprintw(s.bounds.pos.y + win->starty + y,
-                 s.bounds.pos.x + win->startx + x, " ");
+        mvprintw(org.y + y, org.x + x, " ");
       }
     }
-  }
+    // draw render data
+    int y = 0, x = 0, curr_ch = 0;
+    bool done = false;
+    while (!done)
+    {
+      char ch = s.render_data.c[curr_ch];
+      curr_ch++;
+      if (curr_ch >= strlen(s.render_data.c))
+        done = true; // We still get to finish this current char
 
-  // Render section setpeaces
-  for (int i = 0; i < gs->sections.count; i++)
-  {
-    SECTION *s = &gs->sections.s[i];
+      // inc line,
+      if (ch == newline)
+      {
+        x = 0;
+        y++;
+        continue;
+      }
+
+      ASSERT(ch != newline);
+      mvaddch(y + org.y, x + org.x, ch);
+      x++;
+    }
+
+    // mvprintw(org.y, org.x, s.render_data);
   }
 
 #ifdef DEV
