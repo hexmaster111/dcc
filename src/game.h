@@ -31,9 +31,17 @@ typedef struct entity_t
     XY pos;
 } PLAYER;
 
+typedef enum exit_e
+{
+    E_WALL,
+    E_FLOOR
+} E_EXIT;
+
 typedef struct exit_t
 {
     XY pos;
+    E_EXIT type;
+    char c;
 } EXIT;
 
 typedef struct exit_list_t

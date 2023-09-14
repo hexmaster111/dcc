@@ -21,12 +21,15 @@ void init_win_params(WIN *, int w, int h);
 void print_win_params(WIN *p_win);
 void create_box(WIN *win, bool flag);
 void render(GameState_ptr, WIN *);
+void clear_rect(int y, int x, int w, int h, const char *c);
 
 void init_color_pairs()
 {
   init_pair(1, COLOR_CYAN, COLOR_BLACK);
   init_pair(2, COLOR_RED, COLOR_BLACK);
 }
+
+// WINSIZE is 50x30
 
 int main(int argc, char *argv[])
 {
@@ -115,13 +118,25 @@ void create_box(WIN *p_win, bool flag)
     mvvline(y + 1, x + w, p_win->border.rs, h - 1);
   }
   else
-    for (j = y; j <= y + h; ++j)
-      for (i = x; i <= x + w; ++i)
-        mvaddch(j, i, ' ');
+  {
+    clear_rect(y, x, w, h, " ");
+  }
 
   refresh();
 }
 #define DEV
+
+/// @brief NOTE! Uses y,x,w,h notation
+void clear_rect(int y, int x, int w, int h, const char *c)
+{
+  for (int _y = 1; _y < h + 1; _y++)
+  {
+    for (int _x = 1; _x < w + 1; _x++)
+    {
+      mvaddstr(y + _y, x + _x, c);
+    }
+  }
+}
 
 void render(GameState_ptr gs, WIN *win)
 {
@@ -134,14 +149,8 @@ void render(GameState_ptr gs, WIN *win)
     XY org = {.x = s.bounds.pos.x + win->startx,
               .y = s.bounds.pos.y + win->starty};
 
-    // clear the rect
-    for (int y = 1; y < s.bounds.size.h; y++)
-    {
-      for (int x = 1; x < s.bounds.size.w; x++)
-      {
-        mvprintw(org.y + y, org.x + x, " ");
-      }
-    }
+    clear_rect(org.y, org.x, s.bounds.size.w, s.bounds.size.h, " ");
+
     // draw render data
     int y = 0, x = 0, curr_ch = 0;
     bool done = false;
