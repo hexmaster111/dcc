@@ -185,10 +185,6 @@ const char *__load_single_section(SECTION *section, char *file)
 
             int expected_chars_count = (a.wh.w * a.wh.h) + (a.wh.h - 1);
 
-            // TODO: stream in the data from the file into the sections render data
-            // TODO: When this is not a const char, we should strcpy and not just assign the ptr
-            // section->render_data = "##########\n#        #\n#        #\n#        #\n#  LAB   #\n#        #\n#        #\n#        #\n#        #\n##########";
-
             section->render_data = malloc(expected_chars_count + 1);
             memset(section->render_data, ' ', expected_chars_count);
             section->render_data[expected_chars_count] = '\0';
