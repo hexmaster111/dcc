@@ -55,7 +55,7 @@ struct parser_state
     int arg[4];
 
     char *header_item_type;
-
+    bool in_comment;
     int buff_pos;
     char buffer[30 * 30];
 };
@@ -65,6 +65,11 @@ struct building_args
     int type;
     WH wh;
 };
+
+// Swap for parse debugging info
+//  #define parse_dgb(...) glog_printf(__VA_ARGS__)
+#define parse_dgb(...)
+
 err parse_exit(struct parser_state *p, FILE *f, SECTION *section)
 {
     // types "exit"
@@ -81,11 +86,11 @@ err parse_exit(struct parser_state *p, FILE *f, SECTION *section)
     e->pos.y = p->arg[2] - 1;
     e->c = (char)p->arg[3];
 
-    glog_printf("Exit: type: %d, x: %d, y: %d, c: '%c'\n",
-                e->type,
-                e->pos.x,
-                e->pos.y,
-                e->c);
+    parse_dgb("Exit: type: %d, x: %d, y: %d, c: '%c'\n",
+              e->type,
+              e->pos.x,
+              e->pos.y,
+              e->c);
 
     if (e->type == 0)
     {
@@ -157,14 +162,6 @@ err __load_single_section(SECTION *section, char *file)
     struct parser_state p = {};
     const char *err = NULL;
 
-    if (f == NULL)
-    {
-        err = "Error opening file";
-        goto end;
-    }
-
-    bool in_comment = false;
-
     /*
         Header format:
         [item_type(arg1, arg2, arg3, arg4)]
@@ -184,29 +181,35 @@ err __load_single_section(SECTION *section, char *file)
         ##########
     */
 
+    if (f == NULL)
+    {
+        err = "Error opening file";
+        goto end;
+    }
+
     while ((p.curr = fgetc(f)) != -1)
     {
-        if (p.curr == '\n' && in_comment)
+        if (p.curr == '\n' && p.in_comment)
         {
-            in_comment = false;
+            p.in_comment = false;
         }
 
-        glog_printf(" %c ", p.curr);
+        parse_dgb(" %c ", p.curr);
 
-        if (p.curr == '@' && !in_comment)
+        if (p.curr == '@' && !p.in_comment)
         {
-            in_comment = true;
+            p.in_comment = true;
         }
 
         // skip comments
-        if (in_comment)
+        if (p.in_comment)
         {
-            glog_printf("SKIP\n");
+            parse_dgb("SKIP\n");
             continue;
         }
         if (!p.got_header_p3)
         {
-            glog_printf("HDR\n");
+            parse_dgb("HDR\n");
 
             if (p.curr == EOF)
             {
@@ -252,13 +255,13 @@ err __load_single_section(SECTION *section, char *file)
                 // read to ) or ,
                 if (p.curr == ',')
                 {
-                    glog_printf("Parsing arg: %s\n", p.buffer);
+                    parse_dgb("Parsing arg: %s\n", p.buffer);
 
                     if (p.buffer[0] == '\'')
                     {
                         // its a char
                         p.arg[p.curr_arg] = p.buffer[1];
-                        glog_printf("Got char: %c\n", p.arg[p.curr_arg]);
+                        parse_dgb("Got char: %c\n", p.arg[p.curr_arg]);
                         p.curr_arg++;
                         p.buff_pos = 0;
                         p.buffer[p.buff_pos] = '\0';
@@ -284,7 +287,7 @@ err __load_single_section(SECTION *section, char *file)
                     {
                         // its a char
                         p.arg[p.curr_arg] = p.buffer[1];
-                        glog_printf("Got char: %c\n", p.arg[p.curr_arg]);
+                        parse_dgb("Got char: %c\n", p.arg[p.curr_arg]);
                         p.curr_arg++;
                         p.buff_pos = 0;
                         p.buffer[p.buff_pos] = '\0';
@@ -319,12 +322,12 @@ err __load_single_section(SECTION *section, char *file)
             }
         }
 
-        glog_printf("Parsing header item: %s\n", p.header_item_type);
+        parse_dgb("Parsing header item: %s\n", p.header_item_type);
 
 #define match(s) strcmp(p.header_item_type, s) == 0
         if (match("exit"))
         {
-            glog_printf("Parsing exit\n");
+            parse_dgb("Parsing exit\n");
             err = parse_exit(&p, f, section);
             if (err != NULL)
             {
@@ -338,12 +341,12 @@ err __load_single_section(SECTION *section, char *file)
         if (match("building"))
         {
 
-            glog_printf("Parsing building\n");
+            parse_dgb("Parsing building\n");
             err = parse_building(&p, f, section);
             if (err != NULL)
             {
                 goto end;
-                glog_printf("Error parsing building: %s\n", err);
+                parse_dgb("Error parsing building: %s\n", err);
             }
             p = (struct parser_state){};
             continue;
@@ -351,7 +354,7 @@ err __load_single_section(SECTION *section, char *file)
 #undef match
     }
 
-    glog_printf("Done parsing file\n");
+    parse_dgb("Done parsing file\n");
 
 end:
     fclose(f);
@@ -366,7 +369,7 @@ void game_load_section(GameState_ptr gs, char *folder)
     d = opendir(folder);
     if (!d)
     {
-        glog_printf("Error opening directory: %s\n", folder);
+        parse_dgb("Error opening directory: %s\n", folder);
         return;
     }
 
@@ -383,7 +386,7 @@ void game_load_section(GameState_ptr gs, char *folder)
         strcpy(filepath, folder);
         strcat(filepath, "/");
         strcat(filepath, dir->d_name);
-        glog_printf("Loading section: %s\n", filepath);
+        parse_dgb("Loading section: %s\n", filepath);
         gs->sections.count++;
         gs->sections.s = realloc(gs->sections.s, sizeof(SECTION) * gs->sections.count);
         SECTION *s = &gs->sections.s[gs->sections.count - 1];
@@ -391,7 +394,7 @@ void game_load_section(GameState_ptr gs, char *folder)
         if (err != NULL)
         {
             endwin();
-            glog_printf("Error loading section: %s\nIn File: %s\n", err, filepath);
+            parse_dgb("Error loading section: %s\nIn File: %s\n", err, filepath);
             exit(1);
         }
         free(filepath);
