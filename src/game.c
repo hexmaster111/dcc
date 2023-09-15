@@ -7,6 +7,7 @@
 #ifndef DT_REG
 #define DT_REG 8 // idk why, but this wasnt defined in my dirent.h but it compiled fine
 #endif
+typedef const char *err;
 
 void game_init(GameState_ptr gs)
 {
@@ -64,8 +65,57 @@ struct building_args
     WH wh;
 };
 
+err parse_building(struct parser_state *p, FILE *f, SECTION *section)
+{
+
+    // types "building"
+    if (strcmp(p->header_item_type, "building") != 0)
+    {
+        return "expected building header";
+    }
+
+    // todo parse building
+    section->bounds.pos.x = 10;
+    section->bounds.pos.y = 10;
+
+    struct building_args a = {.wh.w = p->arg[1], .wh.h = p->arg[2], .type = p->arg[0]};
+    section->bounds.size.w = a.wh.w - 1; // -1 because we are 0 based, humans are 1 based
+    section->bounds.size.h = a.wh.h - 1;
+
+    int expected_chars_count = (a.wh.w * a.wh.h) + (a.wh.h - 1);
+
+    section->render_data = malloc(expected_chars_count + 1);
+    memset(section->render_data, ' ', expected_chars_count);
+    section->render_data[expected_chars_count] = '\0';
+    // set expected \n chars
+    for (int i = 0; i < a.wh.h - 1; i++)
+    {
+        section->render_data[(a.wh.w * (i + 1)) + i] = '\n';
+    }
+
+    char ch;
+    int curr_ch = 0;
+    bool done = false;
+    while (!done)
+    {
+        ch = fgetc(f);
+        if (curr_ch >= expected_chars_count)
+            done = true; // We still get to finish this current char
+
+        if (ch == EOF)
+        {
+            return "got EOF reading building";
+        }
+
+        section->render_data[curr_ch] = ch;
+        curr_ch++;
+    }
+
+    return NULL;
+}
+
 // NULL on OK
-const char *__load_single_section(SECTION *section, char *file)
+err __load_single_section(SECTION *section, char *file)
 {
     FILE *f = fopen(file, "r");
     struct parser_state p = {};
@@ -171,46 +221,33 @@ const char *__load_single_section(SECTION *section, char *file)
             continue;
         }
 
-        // types "building"
+        // if (strcmp(p.header_item_type, "exit") == 0)
+        // {
+        //     // TODO: parse exit
+        //     // for now just consume the rest of the line
+        //     while (p.curr != '\n')
+        //     {
+        //         p.curr = fgetc(f);
+        //     }
+
+        //     p = (struct parser_state){};
+        //     continue;
+        // }
 
         if (strcmp(p.header_item_type, "building") == 0)
         {
-            // todo parse building
-            section->bounds.pos.x = 10;
-            section->bounds.pos.y = 10;
-
-            struct building_args a = {.wh.w = p.arg[1], .wh.h = p.arg[2], .type = p.arg[0]};
-            section->bounds.size.w = a.wh.w - 1; // -1 because we are 0 based, humans are 1 based
-            section->bounds.size.h = a.wh.h - 1;
-
-            int expected_chars_count = (a.wh.w * a.wh.h) + (a.wh.h - 1);
-
-            section->render_data = malloc(expected_chars_count + 1);
-            memset(section->render_data, ' ', expected_chars_count);
-            section->render_data[expected_chars_count] = '\0';
-
-            char ch;
-            int curr_ch = 0;
-            bool done = false;
-            while (!done)
+            err = parse_building(&p, f, section);
+            if (err != NULL)
             {
-                ch = fgetc(f);
-                if (curr_ch >= expected_chars_count)
-                    done = true; // We still get to finish this current char
-
-                section->render_data[curr_ch] = ch;
-                curr_ch++;
+                goto end;
             }
-
-            // Reset the parser state for the next item
             p = (struct parser_state){};
+            continue;
         }
     }
 
 end:
     fclose(f);
-    if (err != NULL)
-        printf("error reading sec %s", err);
     return err;
 }
 
@@ -243,7 +280,13 @@ void game_load_section(GameState_ptr gs, char *folder)
         gs->sections.count++;
         gs->sections.s = realloc(gs->sections.s, sizeof(SECTION) * gs->sections.count);
         SECTION *s = &gs->sections.s[gs->sections.count - 1];
-        __load_single_section(s, filepath);
+        const char *err = __load_single_section(s, filepath);
+        if (err != NULL)
+        {
+            endwin();
+            printf("Error loading section: %s\nIn File: %s\n", err, filepath);
+            exit(1);
+        }
         free(filepath);
     }
 
