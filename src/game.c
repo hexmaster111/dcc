@@ -180,12 +180,34 @@ const char *__load_single_section(SECTION *section, char *file)
             section->bounds.pos.y = 10;
 
             struct building_args a = {.wh.w = p.arg[1], .wh.h = p.arg[2], .type = p.arg[0]};
-            section->bounds.size = a.wh;
-            int expected_chars_count = a.wh.w * a.wh.h;
+            section->bounds.size.w = a.wh.w - 1; // -1 because we are 0 based, humans are 1 based
+            section->bounds.size.h = a.wh.h - 1;
+
+            int expected_chars_count = (a.wh.w * a.wh.h) + (a.wh.h - 1);
 
             // TODO: stream in the data from the file into the sections render data
             // TODO: When this is not a const char, we should strcpy and not just assign the ptr
-            section->render_data.c = "##########\n#        #\n#        #\n#        #\n#  LAB   #\n#        #\n#        #\n#        #\n#        #\n##########";
+            // section->render_data = "##########\n#        #\n#        #\n#        #\n#  LAB   #\n#        #\n#        #\n#        #\n#        #\n##########";
+
+            section->render_data = malloc(expected_chars_count + 1);
+            memset(section->render_data, ' ', expected_chars_count);
+            section->render_data[expected_chars_count] = '\0';
+
+            char ch;
+            int curr_ch = 0;
+            bool done = false;
+            while (!done)
+            {
+                ch = fgetc(f);
+                if (curr_ch >= expected_chars_count)
+                    done = true; // We still get to finish this current char
+
+                section->render_data[curr_ch] = ch;
+                curr_ch++;
+            }
+
+            // Reset the parser state for the next item
+            p = (struct parser_state){};
         }
     }
 

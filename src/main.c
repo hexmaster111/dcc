@@ -98,7 +98,6 @@ void print_win_params(WIN *p_win)
 }
 void create_box(WIN *p_win, bool flag)
 {
-  int i, j;
   int x, y, w, h;
 
   x = p_win->startx;
@@ -156,9 +155,9 @@ void render(GameState_ptr gs, WIN *win)
     bool done = false;
     while (!done)
     {
-      char ch = s.render_data.c[curr_ch];
+      char ch = s.render_data[curr_ch];
       curr_ch++;
-      if (curr_ch >= strlen(s.render_data.c))
+      if (curr_ch >= strlen(s.render_data))
         done = true; // We still get to finish this current char
 
       // inc line,

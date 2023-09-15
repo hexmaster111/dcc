@@ -50,16 +50,13 @@ typedef struct exit_list_t
     EXIT *exits;
 } EXIT_LIST;
 
-typedef struct string_t
-{
-    char *c;
-} STRING;
+typedef char *STR;
 
 typedef struct section_t
 {
     RECT bounds;
     EXIT_LIST exits;
-    STRING render_data;
+    STR render_data;
 } SECTION;
 
 typedef struct sectionlist_t

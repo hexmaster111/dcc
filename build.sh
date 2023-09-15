@@ -1,2 +1,2 @@
 #!/bin/bash
-cc -ggdb src/main.c src/game.c -lncurses -o bin/main
+cc -ggdb -Wall src/main.c src/game.c -lncurses -o bin/main
