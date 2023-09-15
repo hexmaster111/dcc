@@ -1,7 +1,8 @@
 
 #include <ncurses.h>
 #include "game.h"
-#include "assert.h"
+#include "global.h"
+#include "assume.h"
 #include <string.h>
 
 typedef struct _win_border_struct
@@ -36,6 +37,16 @@ int main(int argc, char *argv[])
   WIN win;
   int ch;
   GameState gs = {0};
+
+  const char *log_file = "log.txt";
+  FILE *f = fopen(log_file, "w");
+  if (!f)
+  {
+    printf("Failed to open log file %s\n", log_file);
+    return 1;
+  }
+  glog_init(f);
+
   game_init(&gs);
   game_load_section(&gs, "section");
 
@@ -69,6 +80,7 @@ int main(int argc, char *argv[])
   }
   endwin(); /* End curses mode		  */
   game_free(&gs);
+  glog_destroy();
   return 0;
 }
 
@@ -168,7 +180,7 @@ void render(GameState_ptr gs, WIN *win)
         continue;
       }
 
-      ASSERT(ch != newline);
+      ASSUME(ch != newline);
       mvaddch(y + org.y, x + org.x, ch);
       x++;
     }

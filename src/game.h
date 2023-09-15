@@ -33,8 +33,9 @@ typedef struct entity_t
 
 typedef enum exit_e
 {
-    E_WALL,
-    E_FLOOR
+    E_DOWN = 1,
+    E_UP,
+    E_DOOR
 } E_EXIT;
 
 typedef struct exit_t

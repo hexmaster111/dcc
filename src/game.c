@@ -1,6 +1,7 @@
 #include "game.h"
+#include "assume.h"
+#include "global.h"
 #include <curses.h>
-#include "assert.h"
 #include <string.h>
 #include <dirent.h>
 
@@ -64,17 +65,42 @@ struct building_args
     int type;
     WH wh;
 };
+err parse_exit(struct parser_state *p, FILE *f, SECTION *section)
+{
+    // types "exit"
+    ASSUME(p->header_item_type != NULL);
+    ASSUME(strcmp(p->header_item_type, "exit") == 0);
+
+    // alloc room for new exit
+    section->exits.count++;
+    section->exits.exits = realloc(section->exits.exits, sizeof(EXIT) * section->exits.count);
+    EXIT *e = &section->exits.exits[section->exits.count - 1];
+
+    e->type = p->arg[0];
+    e->pos.x = p->arg[1] - 1;
+    e->pos.y = p->arg[2] - 1;
+    e->c = (char)p->arg[3];
+
+    if (e->type == 0)
+    {
+        return "exit type 0 is not valid";
+    }
+
+    if (e->pos.x == 0 || e->pos.y == 0)
+    {
+        return "exit pos is 1 based";
+    }
+
+    return NULL;
+}
 
 err parse_building(struct parser_state *p, FILE *f, SECTION *section)
 {
 
-    // types "building"
-    if (strcmp(p->header_item_type, "building") != 0)
-    {
-        return "expected building header";
-    }
+    ASSUME(p->header_item_type != NULL);
+    ASSUME(strcmp(p->header_item_type, "building") == 0);
 
-    // todo parse building
+    // TODO: handle placing buildings around map
     section->bounds.pos.x = 10;
     section->bounds.pos.y = 10;
 
@@ -99,6 +125,10 @@ err parse_building(struct parser_state *p, FILE *f, SECTION *section)
     while (!done)
     {
         ch = fgetc(f);
+
+        if (curr_ch == 0 && ch == '\n')
+            continue;
+
         if (curr_ch >= expected_chars_count)
             done = true; // We still get to finish this current char
 
@@ -127,10 +157,50 @@ err __load_single_section(SECTION *section, char *file)
         goto end;
     }
 
+    bool in_comment = false;
+
+    /*
+        Header format:
+        [item_type(arg1, arg2, arg3, arg4)]
+        where item_type is the type of item, and arg1-4 are the arguments for that item
+
+        the content is the actual data for the item, for example, a building might look like:
+        [building(1, 10, 10)]
+        ##########
+        #        #
+        #        #
+        #        #
+        #        #
+        #        #
+        #        #
+        #        #
+        #        #
+        ##########
+    */
+
     while ((p.curr = fgetc(f)) != -1)
     {
+        if (p.curr == '\n' && in_comment)
+        {
+            in_comment = false;
+        }
+
+        glog_printf(" %c ", p.curr);
+
+        if (p.curr == '@' && !in_comment)
+        {
+            in_comment = true;
+        }
+
+        // skip comments
+        if (in_comment)
+        {
+            glog_printf("SKIP\n");
+            continue;
+        }
         if (!p.got_header_p3)
         {
+            glog_printf("HDR");
 
             if (p.curr == EOF)
             {
@@ -215,36 +285,43 @@ err __load_single_section(SECTION *section, char *file)
                 if (p.curr == ']')
                 {
                     p.got_header_p3 = true;
-                    continue;
                 }
             }
-            continue;
         }
 
-        // if (strcmp(p.header_item_type, "exit") == 0)
-        // {
-        //     // TODO: parse exit
-        //     // for now just consume the rest of the line
-        //     while (p.curr != '\n')
-        //     {
-        //         p.curr = fgetc(f);
-        //     }
+        glog_printf("Parsing header item: %s\n", p.header_item_type);
 
-        //     p = (struct parser_state){};
-        //     continue;
-        // }
-
-        if (strcmp(p.header_item_type, "building") == 0)
+#define match(s) strcmp(p.header_item_type, s) == 0
+        if (match("exit"))
         {
-            err = parse_building(&p, f, section);
+            glog_printf("Parsing exit\n");
+            err = parse_exit(&p, f, section);
             if (err != NULL)
             {
                 goto end;
             }
+
             p = (struct parser_state){};
             continue;
         }
+
+        if (match("building"))
+        {
+
+            glog_printf("Parsing building\n");
+            err = parse_building(&p, f, section);
+            if (err != NULL)
+            {
+                goto end;
+                glog_printf("Error parsing building: %s\n", err);
+            }
+            p = (struct parser_state){};
+            continue;
+        }
+#undef match
     }
+
+    glog_printf("Done parsing file\n");
 
 end:
     fclose(f);
@@ -259,7 +336,7 @@ void game_load_section(GameState_ptr gs, char *folder)
     d = opendir(folder);
     if (!d)
     {
-        printf("Error opening directory: %s\n", folder);
+        glog_printf("Error opening directory: %s\n", folder);
         return;
     }
 
@@ -276,7 +353,7 @@ void game_load_section(GameState_ptr gs, char *folder)
         strcpy(filepath, folder);
         strcat(filepath, "/");
         strcat(filepath, dir->d_name);
-        printf("Loading section: %s\n", filepath);
+        glog_printf("Loading section: %s\n", filepath);
         gs->sections.count++;
         gs->sections.s = realloc(gs->sections.s, sizeof(SECTION) * gs->sections.count);
         SECTION *s = &gs->sections.s[gs->sections.count - 1];
@@ -284,7 +361,7 @@ void game_load_section(GameState_ptr gs, char *folder)
         if (err != NULL)
         {
             endwin();
-            printf("Error loading section: %s\nIn File: %s\n", err, filepath);
+            glog_printf("Error loading section: %s\nIn File: %s\n", err, filepath);
             exit(1);
         }
         free(filepath);
