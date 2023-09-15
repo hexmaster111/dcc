@@ -81,6 +81,12 @@ err parse_exit(struct parser_state *p, FILE *f, SECTION *section)
     e->pos.y = p->arg[2] - 1;
     e->c = (char)p->arg[3];
 
+    glog_printf("Exit: type: %d, x: %d, y: %d, c: '%c'\n",
+                e->type,
+                e->pos.x,
+                e->pos.y,
+                e->c);
+
     if (e->type == 0)
     {
         return "exit type 0 is not valid";
@@ -200,7 +206,7 @@ err __load_single_section(SECTION *section, char *file)
         }
         if (!p.got_header_p3)
         {
-            glog_printf("HDR");
+            glog_printf("HDR\n");
 
             if (p.curr == EOF)
             {
@@ -246,6 +252,19 @@ err __load_single_section(SECTION *section, char *file)
                 // read to ) or ,
                 if (p.curr == ',')
                 {
+                    glog_printf("Parsing arg: %s\n", p.buffer);
+
+                    if (p.buffer[0] == '\'')
+                    {
+                        // its a char
+                        p.arg[p.curr_arg] = p.buffer[1];
+                        glog_printf("Got char: %c\n", p.arg[p.curr_arg]);
+                        p.curr_arg++;
+                        p.buff_pos = 0;
+                        p.buffer[p.buff_pos] = '\0';
+                        continue;
+                    }
+
                     // save the arg !!COULD BE INDEX OUT OF RAGE HERE!!
                     p.arg[p.curr_arg] = atoi(p.buffer);
                     // inc curr
@@ -260,6 +279,17 @@ err __load_single_section(SECTION *section, char *file)
                 if (p.curr == ')')
                 {
                     p.got_header_p2 = true;
+
+                    if (p.buffer[0] == '\'')
+                    {
+                        // its a char
+                        p.arg[p.curr_arg] = p.buffer[1];
+                        glog_printf("Got char: %c\n", p.arg[p.curr_arg]);
+                        p.curr_arg++;
+                        p.buff_pos = 0;
+                        p.buffer[p.buff_pos] = '\0';
+                        continue;
+                    }
 
                     // save the arg !!COULD BE INDEX OUT OF RAGE HERE!!
                     p.arg[p.curr_arg] = atoi(p.buffer);

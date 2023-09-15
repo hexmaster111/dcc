@@ -228,7 +228,7 @@ void render(GameState_ptr gs, WIN *win)
       mvaddch(
           s.bounds.pos.y + e->pos.y,
           s.bounds.pos.x + e->pos.x,
-          '#');
+          e->c);
     }
   }
 
