@@ -36,6 +36,15 @@ void game_layout_sections(GameState_ptr gs)
         ASSUME(s != NULL);
     }
 
+    for (int i = 0; i < MAP_SIZE * MAP_SIZE; i++)
+    {
+        int lin = i / MAP_SIZE;
+        int col = i % MAP_SIZE;
+        TILE *tile = game_get_tile_at_pos(&map, lin, col);
+        ASSUME(tile != NULL);
+        tile->section = &gs->sections.s[0];
+    }
+
     gs->map = map;
 }
 

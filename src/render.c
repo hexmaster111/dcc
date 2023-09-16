@@ -8,7 +8,7 @@ void init_win_params(WIN *, int w, int h);
 void print_win_params(WIN *p_win);
 void render_create_box(WIN *win, bool flag);
 void render_gamestate(GameState_ptr, RENDER *);
-void render_clear_rect(int y, int x, int w, int h, const char *c);
+void render_fill_rect(int y, int x, int w, int h, const char *c);
 
 void init_color_pairs()
 {
@@ -60,7 +60,7 @@ void render_create_box(WIN *p_win, bool flag)
     }
     else
     {
-        render_clear_rect(y, x, w, h, " ");
+        render_fill_rect(y, x, w, h, " ");
     }
 
     refresh();
@@ -68,7 +68,7 @@ void render_create_box(WIN *p_win, bool flag)
 #define DEV
 
 /// @brief NOTE! Uses y,x,w,h notation
-void render_clear_rect(int y, int x, int w, int h, const char *c)
+void render_fill_rect(int y, int x, int w, int h, const char *c)
 {
     for (int _y = 1; _y < h + 1; _y++)
     {
@@ -79,13 +79,25 @@ void render_clear_rect(int y, int x, int w, int h, const char *c)
     }
 }
 
-void render_tile(TILE *tile, int c_y, int c_x, WIN *win)
+void render_tile(TILE *tile, int c_y, int c_x)
 {
-    render_clear_rect(c_y, c_x, TILE_SIZE, TILE_SIZE, " ");
+
+    render_fill_rect(c_y, c_x, TILE_SIZE, TILE_SIZE, " ");
+
+    // render_section_exits(c_y, c_x, tile->section->exits)
+
+#ifdef DEV
     mvaddch(c_y, c_x, '+');
     mvaddch(c_y + TILE_SIZE, c_x, '+');
     mvaddch(c_y, c_x + TILE_SIZE, '+');
     mvaddch(c_y + TILE_SIZE, c_x + TILE_SIZE, '+');
+#endif
+
+    for (int i = 0; i < tile->section->exits.count; i++)
+    {
+        EXIT *e = &tile->section->exits.exits[i];
+        mvaddch(c_y + e->pos.y, c_x + e->pos.x, e->c);
+    }
 }
 
 void render_map(MAP *map, WIN *win)
@@ -97,7 +109,10 @@ void render_map(MAP *map, WIN *win)
         TILE *tile = game_get_tile_at_pos(map, lin, col);
         ASSUME(tile != NULL);
         //+1 on the px for the border
-        render_tile(tile, (lin * TILE_SIZE) + 1, (col * TILE_SIZE) + 1, win);
+        //+ win pos for window offset
+        render_tile(tile,
+                    ((lin * TILE_SIZE) + 1) + win->starty,
+                    ((col * TILE_SIZE) + 1) + win->startx);
     }
 }
 
