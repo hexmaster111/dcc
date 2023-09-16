@@ -67,6 +67,7 @@ typedef struct sectionlist_t
     SECTION *s;
 } SECTION_LIST;
 
+#define TILE_SIZE 10
 typedef struct tile_t
 {
     SECTION *section;

@@ -1,9 +1,9 @@
 #ifndef __RENDER_H
 #define __RENDER_H
 
-#include <ncurses.h>
 #include "global.h"
 #include "game.h"
+#include <curses.h>
 
 typedef struct _win_border_struct
 {

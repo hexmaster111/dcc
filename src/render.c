@@ -2,6 +2,7 @@
 #include "global.h"
 #include "game.h"
 #include "assume.h"
+#include <ncurses.h>
 
 void init_win_params(WIN *, int w, int h);
 void print_win_params(WIN *p_win);
@@ -78,22 +79,25 @@ void render_clear_rect(int y, int x, int w, int h, const char *c)
     }
 }
 
-void render_tile(TILE *tile, int c_y, int c_x)
+void render_tile(TILE *tile, int c_y, int c_x, WIN *win)
 {
+    render_clear_rect(c_y, c_x, TILE_SIZE, TILE_SIZE, " ");
+    mvaddch(c_y, c_x, '+');
+    mvaddch(c_y + TILE_SIZE, c_x, '+');
+    mvaddch(c_y, c_x + TILE_SIZE, '+');
+    mvaddch(c_y + TILE_SIZE, c_x + TILE_SIZE, '+');
 }
 
 void render_map(MAP *map, WIN *win)
 {
-
-    int c_x = 1; // Start with a little offset for the screen border still
-    int c_y = 1;
     for (int i = 0; i < MAP_SIZE * MAP_SIZE; i++)
     {
         int lin = i / MAP_SIZE;
         int col = i % MAP_SIZE;
-
         TILE *tile = game_get_tile_at_pos(map, lin, col);
         ASSUME(tile != NULL);
+        //+1 on the px for the border
+        render_tile(tile, (lin * TILE_SIZE) + 1, (col * TILE_SIZE) + 1, win);
     }
 }
 

@@ -3,6 +3,7 @@
 #include "global.h"
 #include "assume.h"
 #include "render.h"
+#include <curses.h>
 #include <string.h>
 
 // WINSIZE is 50x30
