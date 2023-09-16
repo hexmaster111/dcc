@@ -38,6 +38,7 @@ typedef enum exit_e
     E_DOOR
 } E_EXIT;
 
+/// @brief Like a warp point, steps up and down, places that cause a level change
 typedef struct exit_t
 {
     XY pos;
@@ -55,7 +56,7 @@ typedef char *STR;
 
 typedef struct section_t
 {
-    RECT bounds;
+    WH bounds;
     EXIT_LIST exits;
     STR render_data;
 } SECTION;
@@ -66,16 +67,35 @@ typedef struct sectionlist_t
     SECTION *s;
 } SECTION_LIST;
 
+typedef struct tile_t
+{
+    SECTION *section;
+    XY map_pos;
+} TILE;
+#define MAP_SIZE 3
+
+typedef struct map_t
+{
+
+    // map[LINE Y][COL X]
+    TILE map[MAP_SIZE][MAP_SIZE];
+} MAP;
+
 /// @brief Game state
 typedef struct gamestate_t
 {
     PLAYER player;
+    // Sections avalable to map gen
     SECTION_LIST sections;
+    // the map being played
+    MAP map;
 } GameState, *GameState_ptr;
 
 void game_init(GameState_ptr);
 int game_proc_keypress(GameState_ptr, int);
 void game_free(GameState_ptr);
 void game_load_section(GameState_ptr gs, char *filepath);
+void game_layout_sections(GameState_ptr gs);
+TILE *game_get_tile_at_pos(MAP *map, int y_line, int x_col);
 
 #endif // __GAME_H

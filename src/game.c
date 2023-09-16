@@ -4,17 +4,49 @@
 #include <curses.h>
 #include <string.h>
 #include <dirent.h>
+#include <math.h>
 
 #ifndef DT_REG
 #define DT_REG 8 // idk why, but this wasnt defined in my dirent.h but it compiled fine
 #endif
 typedef const char *err;
 
+// START GAME LAYOUT ##################################################################
+
+TILE *game_get_tile_at_pos(MAP *map, int y_line, int x_col)
+{
+    if (y_line < 0 || y_line >= MAP_SIZE)
+        return NULL;
+
+    if (x_col < 0 || x_col >= MAP_SIZE)
+        return NULL;
+
+    return &map->map[y_line][x_col];
+}
+
+void game_layout_sections(GameState_ptr gs)
+{
+    MAP map = {0};
+
+    ASSUME(gs != NULL);
+    for (int i = 0; i < gs->sections.count; i++)
+    {
+        // check and zero our sections positions
+        SECTION *s = &gs->sections.s[i];
+        ASSUME(s != NULL);
+    }
+
+    gs->map = map;
+}
+
+// END GAME LAYOUT ##################################################################
+
 void game_init(GameState_ptr gs)
 {
     gs->player.pos.x = 17;
     gs->player.pos.y = 17;
     gs->sections.count = 0;
+    gs->sections.s = NULL;
 };
 
 void game_free(GameState_ptr gs)
@@ -42,6 +74,7 @@ int game_proc_keypress(GameState_ptr gs, int ch)
     return 0; // non 0 to quit
 }
 
+// TODO: Move this to a seperate file ---------- PARSER
 struct parser_state
 {
     int curr;
@@ -67,8 +100,37 @@ struct building_args
 };
 
 // Swap for parse debugging info
-//  #define parse_dgb(...) glog_printf(__VA_ARGS__)
-#define parse_dgb(...)
+#define parse_dgb(...) glog_printf(__VA_ARGS__)
+// #define parse_dgb(...)
+
+err parse_gl_section_gen(struct parser_state *p, FILE *f, SECTION *section)
+{
+
+    ASSUME(p->header_item_type != NULL);
+    ASSUME(strcmp(p->header_item_type, "section_gen") == 0);
+    //  so we may see the number '10101' but it is actualy convaing '0b10101'
+
+    // convert args to the actual number
+    for (int i = 0; i < 4; i++)
+    {
+        if (p->arg[i] == 0)
+            continue;
+
+        int tmp = p->arg[i];
+        int curr = 0;
+        int new_num = 0;
+        while (tmp != 0)
+        {
+            int rem = tmp % 10;
+            tmp /= 10;
+            new_num += rem * pow(2, curr);
+            curr++;
+        }
+        p->arg[i] = new_num;
+    }
+
+    return NULL;
+}
 
 err parse_exit(struct parser_state *p, FILE *f, SECTION *section)
 {
@@ -111,13 +173,10 @@ err parse_building(struct parser_state *p, FILE *f, SECTION *section)
     ASSUME(p->header_item_type != NULL);
     ASSUME(strcmp(p->header_item_type, "building") == 0);
 
-    // TODO: handle placing buildings around map
-    section->bounds.pos.x = 10;
-    section->bounds.pos.y = 10;
-
-    struct building_args a = {.wh.w = p->arg[1], .wh.h = p->arg[2], .type = p->arg[0]};
-    section->bounds.size.w = a.wh.w - 1; // -1 because we are 0 based, humans are 1 based
-    section->bounds.size.h = a.wh.h - 1;
+    // Buildings now MUST be 10x10
+    struct building_args a = {.wh.w = p->arg[1], .wh.h = 10, .type = 10};
+    section->bounds.w = a.wh.w - 1; // -1 because we are 0 based, humans are 1 based
+    section->bounds.h = a.wh.h - 1;
 
     int expected_chars_count = (a.wh.w * a.wh.h) + (a.wh.h - 1);
 
@@ -325,32 +384,35 @@ err __load_single_section(SECTION *section, char *file)
         parse_dgb("Parsing header item: %s\n", p.header_item_type);
 
 #define match(s) strcmp(p.header_item_type, s) == 0
+
+#define check_parse_error(s)                         \
+    if (err != NULL)                                 \
+    {                                                \
+        parse_dgb("Error parsing %s: %s\n", s, err); \
+        goto end;                                    \
+    }                                                \
+    p = (struct parser_state){};                     \
+    continue;
+
         if (match("exit"))
         {
-            parse_dgb("Parsing exit\n");
             err = parse_exit(&p, f, section);
-            if (err != NULL)
-            {
-                goto end;
-            }
-
-            p = (struct parser_state){};
-            continue;
+            check_parse_error("exit");
         }
 
         if (match("building"))
         {
-
-            parse_dgb("Parsing building\n");
             err = parse_building(&p, f, section);
-            if (err != NULL)
-            {
-                goto end;
-                parse_dgb("Error parsing building: %s\n", err);
-            }
-            p = (struct parser_state){};
-            continue;
+            check_parse_error("building");
         }
+
+        if (match("section_gen"))
+        {
+            err = parse_gl_section_gen(&p, f, section);
+            check_parse_error("section_gen");
+        }
+
+#undef check_parse_error
 #undef match
     }
 
@@ -389,12 +451,18 @@ void game_load_section(GameState_ptr gs, char *folder)
         parse_dgb("Loading section: %s\n", filepath);
         gs->sections.count++;
         gs->sections.s = realloc(gs->sections.s, sizeof(SECTION) * gs->sections.count);
-        SECTION *s = &gs->sections.s[gs->sections.count - 1];
+        SECTION *s = NULL;
+        s = &gs->sections.s[gs->sections.count - 1]; // ptr to the new section
+        // zero out the section
+        s->exits.count = 0;
+        s->exits.exits = NULL;
+
         const char *err = __load_single_section(s, filepath);
         if (err != NULL)
         {
             endwin();
-            parse_dgb("Error loading section: %s\nIn File: %s\n", err, filepath);
+            glog_printf("Error loading section: %s\nIn File: %s\n", err, filepath);
+            printf("Error loading section: %s\nIn File: %s\n", err, filepath);
             exit(1);
         }
         free(filepath);
@@ -402,3 +470,5 @@ void game_load_section(GameState_ptr gs, char *folder)
 
     closedir(d);
 }
+
+// END PARSER ------------------------------------

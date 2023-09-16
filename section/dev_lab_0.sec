@@ -1,0 +1,26 @@
+@building(reserved, width, lines)
+[building(0)]
+#........#
+#........#
+#........#
+#........#
+#........#
+#........#
+#........#
+#........#
+#........#
+#........#
+
+@Exit Types
+@  1 -> down
+@  2 -> up
+@ Params type, y, x, 'char 
+[exit(1,3,3,'>)]
+
+
+@section_gen(TOP,BOTT,LEFT,RIGHT)
+@ my CODE in bits (16bit max) 
+@ of what side the building can
+@ connect up to
+@             TOP BOTT LEFT RIGHT
+[section_gen(0001,0001,0000,0000)]
