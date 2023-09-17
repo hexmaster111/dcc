@@ -5,16 +5,19 @@
 #include "render.h"
 #include <curses.h>
 #include <string.h>
+#include <time.h>
 
 // WINSIZE is 50x30
 
 int main(int argc, char *argv[])
 {
+reset:
   int ch;
   GameState gs = {0};
   RENDER rnd = {0};
   const char *log_file = "log.txt";
   FILE *f = fopen(log_file, "w");
+  srand(time(NULL));
 
   if (!f)
   {
@@ -31,6 +34,11 @@ int main(int argc, char *argv[])
   render_gamestate(&gs, &rnd);
   while ((ch = getch()) != KEY_F(1))
   {
+    if (ch == KEY_F(2))
+    {
+      goto reset;
+    }
+
     if (game_proc_keypress(&gs, ch))
     {
       break;

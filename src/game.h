@@ -54,11 +54,22 @@ typedef struct exit_list_t
 
 typedef char *STR;
 
+/// @brief This structure describes what section this section is alowed next to
+typedef struct section_gen_key_t
+{
+    int16_t top;
+    int16_t bottem;
+    int16_t left;
+    int16_t right;
+
+} SECTION_GEN_KEY;
+
 typedef struct section_t
 {
     WH bounds;
     EXIT_LIST exits;
     STR render_data;
+    SECTION_GEN_KEY gen_key;
 } SECTION;
 
 typedef struct sectionlist_t

@@ -66,7 +66,6 @@ void render_create_box(WIN *p_win, bool flag)
 
     refresh();
 }
-#define DEV
 
 /// @brief NOTE! Uses y,x,w,h notation
 void render_fill_rect(int y, int x, int w, int h, const char *c)
@@ -116,12 +115,12 @@ void render_section(SECTION *s, int c_y, int c_x)
     }
 }
 
+// #define DEV
 void render_tile(TILE *tile, int c_y, int c_x)
 {
 
     render_fill_rect(c_y, c_x, TILE_SIZE - 1, TILE_SIZE - 1, " ");
 
-    // render_section_exits(c_y, c_x, tile->section->exits)
     render_section(tile->section, c_y, c_x);
 #ifdef DEV
     mvaddch(c_y, c_x, '+');

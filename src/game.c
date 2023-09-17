@@ -13,6 +13,21 @@ typedef const char *err;
 
 // START GAME LAYOUT ##################################################################
 
+// 1: Pick a TILE at random
+// 2: Assinge it a random section
+
+// A must be next to B
+// C must be below A
+// A cant be next to D
+
+// T0:A
+// T1:B
+// T2:A
+// T4:
+// T5:
+// T6:
+// T7:
+
 TILE *game_get_tile_at_pos(MAP *map, int y_line, int x_col)
 {
     if (y_line < 0 || y_line >= MAP_SIZE)
@@ -22,6 +37,33 @@ TILE *game_get_tile_at_pos(MAP *map, int y_line, int x_col)
         return NULL;
 
     return &map->map[y_line][x_col];
+}
+
+bool is_tile_unused(TILE *t)
+{
+    return t->section == NULL;
+}
+
+/// @brief Returns a unique random tile from the given map
+TILE *get_random_unused_tile(MAP *map, int *used)
+{
+    // Pick a random number from 0 -> MAP_SIZE 3^2
+    int r0 = rand() % (MAP_SIZE * MAP_SIZE);
+    // if the number was not used continue
+    while (*used & (1 << r0))
+    {
+        // if the number was used, generate a new random number and check it agine
+        r0 = rand() % (MAP_SIZE * MAP_SIZE);
+    }
+    // the number was not used, mark it as used in the used ptr
+    *used |= (1 << r0);
+
+    // convert the flat 2d array map over to a row and col
+    int lin = r0 / MAP_SIZE;
+    int col = r0 % MAP_SIZE;
+
+    // return the actual tile at the position that we just found
+    return game_get_tile_at_pos(map, lin, col);
 }
 
 void game_layout_sections(GameState_ptr gs)
@@ -36,13 +78,24 @@ void game_layout_sections(GameState_ptr gs)
         ASSUME(s != NULL);
     }
 
+    // null checking them all before i go random on them
     for (int i = 0; i < MAP_SIZE * MAP_SIZE; i++)
     {
         int lin = i / MAP_SIZE;
         int col = i % MAP_SIZE;
         TILE *tile = game_get_tile_at_pos(&map, lin, col);
         ASSUME(tile != NULL);
-        tile->section = &gs->sections.s[1];
+    }
+
+    int used = 0;
+    TILE *first = get_random_unused_tile(&map, &used);
+    ASSUME(first != NULL);
+
+    //-1 for first
+    for (int i = 0; i < ((MAP_SIZE * MAP_SIZE) - 1); i++)
+    {
+        // TILE *t = get_unassigned_tile_near(&map, &used, first);
+        // ASSUME(t != NULL);
     }
 
     gs->map = map;
@@ -119,7 +172,6 @@ err parse_gl_section_gen(struct parser_state *p, FILE *f, SECTION *section)
     ASSUME(strcmp(p->header_item_type, "section_gen") == 0);
     //  so we may see the number '10101' but it is actualy convaing '0b10101'
 
-    // convert args to the actual number
     for (int i = 0; i < 4; i++)
     {
         if (p->arg[i] == 0)
