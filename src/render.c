@@ -2,6 +2,7 @@
 #include "global.h"
 #include "game.h"
 #include "assume.h"
+#include <string.h>
 #include <ncurses.h>
 
 void init_win_params(WIN *, int w, int h);
@@ -79,25 +80,56 @@ void render_fill_rect(int y, int x, int w, int h, const char *c)
     }
 }
 
-void render_tile(TILE *tile, int c_y, int c_x)
+void render_exits(TILE *tile, int c_y, int c_x)
 {
-
-    render_fill_rect(c_y, c_x, TILE_SIZE, TILE_SIZE, " ");
-
-    // render_section_exits(c_y, c_x, tile->section->exits)
-
-#ifdef DEV
-    mvaddch(c_y, c_x, '+');
-    mvaddch(c_y + TILE_SIZE, c_x, '+');
-    mvaddch(c_y, c_x + TILE_SIZE, '+');
-    mvaddch(c_y + TILE_SIZE, c_x + TILE_SIZE, '+');
-#endif
 
     for (int i = 0; i < tile->section->exits.count; i++)
     {
         EXIT *e = &tile->section->exits.exits[i];
         mvaddch(c_y + e->pos.y, c_x + e->pos.x, e->c);
     }
+}
+
+void render_section(SECTION *s, int c_y, int c_x)
+{
+    // draw render data
+    int y = 0, x = 0, curr_ch = 0;
+    bool done = false;
+    while (!done)
+    {
+        char ch = s->render_data[curr_ch];
+        curr_ch++;
+        if (curr_ch >= strlen(s->render_data))
+            done = true; // We still get to finish this current char
+
+        // inc line,
+        if (ch == newline)
+        {
+            x = 0;
+            y++;
+            continue;
+        }
+
+        ASSUME(ch != newline);
+        mvaddch(y + c_y, x + c_x, ch);
+        x++;
+    }
+}
+
+void render_tile(TILE *tile, int c_y, int c_x)
+{
+
+    render_fill_rect(c_y, c_x, TILE_SIZE - 1, TILE_SIZE - 1, " ");
+
+    // render_section_exits(c_y, c_x, tile->section->exits)
+    render_section(tile->section, c_y, c_x);
+#ifdef DEV
+    mvaddch(c_y, c_x, '+');
+    mvaddch(c_y + TILE_SIZE - 1, c_x, '+');
+    mvaddch(c_y, c_x + TILE_SIZE - 1, '+');
+    mvaddch(c_y + TILE_SIZE - 1, c_x + TILE_SIZE - 1, '+');
+#endif
+    render_exits(tile, c_y, c_x);
 }
 
 void render_map(MAP *map, WIN *win)
@@ -119,88 +151,6 @@ void render_map(MAP *map, WIN *win)
 void render_gamestate(GameState_ptr gs, RENDER *r)
 {
     render_map(&gs->map, &r->win);
-    // TODO: RENDER floor, walls, etc
-
-    // for (int i = 0; i < gs->sections.count; i++)
-    // {
-    //   SECTION s = gs->sections.s[i];
-
-    //   XY org = {.x = s.bounds.pos.x + win->startx,
-    //             .y = s.bounds.pos.y + win->starty};
-
-    //   clear_rect(org.y, org.x, s.bounds.size.w, s.bounds.size.h, " ");
-
-    //   // draw render data
-    //   int y = 0, x = 0, curr_ch = 0;
-    //   bool done = false;
-    //   while (!done)
-    //   {
-    //     char ch = s.render_data[curr_ch];
-    //     curr_ch++;
-    //     if (curr_ch >= strlen(s.render_data))
-    //       done = true; // We still get to finish this current char
-
-    //     // inc line,
-    //     if (ch == newline)
-    //     {
-    //       x = 0;
-    //       y++;
-    //       continue;
-    //     }
-
-    //     ASSUME(ch != newline);
-    //     mvaddch(y + org.y, x + org.x, ch);
-    //     x++;
-    //   }
-
-    //   // mvprintw(org.y, org.x, s.render_data);
-    // }
-
-    // #ifdef DEV
-
-    //   int line_x, line_y;
-    //   line_x = win->startx + 1;
-
-    //   line_y = win->starty + 1;
-    //   mvprintw(line_y, win->startx + 3,
-    //            "Player: x:%d y:%d",
-    //            gs->player.pos.x, gs->player.pos.y);
-
-    //   // render the room outlines
-    //   for (int i = 0; i < gs->sections.count; i++)
-    //   {
-
-    //     SECTION s = gs->sections.s[i];
-    //     int x = s.bounds.pos.x;
-    //     int y = s.bounds.pos.y;
-    //     int w = s.bounds.size.w;
-    //     int h = s.bounds.size.h;
-    //     line_y++;
-    //     mvprintw(line_y, line_x, "  section %d: x:%d y:%d w:%d h:%d", i, x, y, w, h);
-    //     mvprintw(y + win->starty, x + win->startx, "+");
-    //     mvprintw(y + win->starty, x + win->startx + w, "+");
-    //     mvprintw(y + win->starty + h, x + win->startx, "+");
-    //     mvprintw(y + win->starty + h, x + win->startx + w, "+");
-    //     // render section exit with #
-    //     if (0 < s.exits.count)
-    //     {
-    //       line_y++;
-    //     }
-    //     for (int j = 0; j < s.exits.count; j++)
-    //     {
-    //       EXIT *e = &s.exits.exits[j];
-    //       mvprintw(line_y, line_x + 10, "x: %d, y: %d",
-    //                e->pos.x,
-    //                e->pos.y);
-
-    //       mvaddch(
-    //           s.bounds.pos.y + e->pos.y,
-    //           s.bounds.pos.x + e->pos.x,
-    //           e->c);
-    //     }
-    //   }
-
-    // #endif
 
     // Do last
     attron(COLOR_PAIR(1));

@@ -42,7 +42,7 @@ void game_layout_sections(GameState_ptr gs)
         int col = i % MAP_SIZE;
         TILE *tile = game_get_tile_at_pos(&map, lin, col);
         ASSUME(tile != NULL);
-        tile->section = &gs->sections.s[0];
+        tile->section = &gs->sections.s[1];
     }
 
     gs->map = map;
@@ -109,8 +109,8 @@ struct building_args
 };
 
 // Swap for parse debugging info
-#define parse_dgb(...) glog_printf(__VA_ARGS__)
-// #define parse_dgb(...)
+// #define parse_dgb(...) glog_printf(__VA_ARGS__)
+#define parse_dgb(...)
 
 err parse_gl_section_gen(struct parser_state *p, FILE *f, SECTION *section)
 {
@@ -183,20 +183,15 @@ err parse_building(struct parser_state *p, FILE *f, SECTION *section)
     ASSUME(strcmp(p->header_item_type, "building") == 0);
 
     // Buildings now MUST be 10x10
-    struct building_args a = {.wh.w = p->arg[1], .wh.h = 10, .type = 10};
-    section->bounds.w = a.wh.w - 1; // -1 because we are 0 based, humans are 1 based
-    section->bounds.h = a.wh.h - 1;
+    section->bounds.w = 10; // -1 because we are 0 based, humans are 1 based
+    section->bounds.h = 10;
 
-    int expected_chars_count = (a.wh.w * a.wh.h) + (a.wh.h - 1);
+    int expected_chars_count = (section->bounds.w * section->bounds.h) +
+                               (section->bounds.h);
 
     section->render_data = malloc(expected_chars_count + 1);
     memset(section->render_data, ' ', expected_chars_count);
     section->render_data[expected_chars_count] = '\0';
-    // set expected \n chars
-    for (int i = 0; i < a.wh.h - 1; i++)
-    {
-        section->render_data[(a.wh.w * (i + 1)) + i] = '\n';
-    }
 
     char ch;
     int curr_ch = 0;
@@ -209,17 +204,25 @@ err parse_building(struct parser_state *p, FILE *f, SECTION *section)
             continue;
 
         if (curr_ch >= expected_chars_count)
+        {
             done = true; // We still get to finish this current char
+        }
 
         if (ch == EOF)
         {
+            glog_printf("<EOF>");
             return "got EOF reading building";
         }
 
         section->render_data[curr_ch] = ch;
+        glog_printf("%c\n", ch);
         curr_ch++;
     }
 
+    glog_printf("Loaded building:\n%s\n", section->render_data);
+    glog_printf("Building had %d chars expected got %d",
+                expected_chars_count,
+                curr_ch);
     return NULL;
 }
 
