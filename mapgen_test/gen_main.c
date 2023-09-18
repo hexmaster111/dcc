@@ -15,8 +15,8 @@ typedef enum
 
 // #define width 79
 // #define height 20
-#define width 150
-#define height 50
+#define width 108
+#define height 10
 
 int get_dev_urandom()
 {
@@ -29,13 +29,13 @@ int get_dev_urandom()
 
 int _rand()
 {
-    static int r = 0;
+    int r = 0;
     if (r == 0)
     {
         r = get_dev_urandom();
     }
-    r = r * 1103515245 + 12345;
-    return (unsigned int)(r / 65536) % 32768;
+    r = (r * 1103515245 + 12345) & 0x7fffffff;
+    return r;
 }
 
 int _rand_in_range(int min, int max)
@@ -95,9 +95,10 @@ void reset()
 // #define dbg(fmt, ...) printf(fmt, ##__VA_ARGS__)
 #define dbg(fmt, ...)
 
+char tiles[width][height] = {0};
+
 int main(int argc, char *argv[])
 {
-    char tiles[width][height] = {0};
     dbg("gen test\n");
 
     // init tiles
@@ -108,22 +109,25 @@ int main(int argc, char *argv[])
             tiles[x][y] = UNTOUCHED;
         }
     }
-    const bool straghten = false;
-    const bool straghten_left = true;
 
-    bool invert;
+    const bool straghten = true;
+
+    bool scan_line_backwards = true;
     for (int i = 0; i < width * height; i++)
     {
-        invert = !invert;
+        scan_line_backwards = !scan_line_backwards;
         int x = i % width;
         int y = i / width;
 
         if (straghten)
         {
 
-            if (invert)
+            if (scan_line_backwards)
             {
-                x = width - x;
+                if (width % 2 == 0)
+                    x = (width - x);
+                else
+                    x = (width - x) - 1;
             }
         }
 
@@ -156,6 +160,13 @@ int main(int argc, char *argv[])
         bool could_be_land = true;
         bool could_be_coast = true;
         bool could_be_sea = true;
+
+        (void)could_be_land;
+        (void)could_be_coast;
+        (void)could_be_sea;
+        (void)any_sea;
+        (void)any_coast;
+        (void)any_land;
 
         if (any_sea)
             could_be_land = false;
@@ -237,5 +248,6 @@ int main(int argc, char *argv[])
         }
     }
 
+    printf("exiting\n");
     return 0;
 }
