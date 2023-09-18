@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
-#include <time.h>
 #include <errno.h>
+#include "../src/assume.h"
 
 typedef enum
 {
@@ -13,8 +13,10 @@ typedef enum
     SEA = 'S'
 } Tile;
 
-#define width 79
-#define height 20
+// #define width 79
+// #define height 20
+#define width 150
+#define height 50
 
 int get_dev_urandom()
 {
@@ -90,138 +92,109 @@ void reset()
     printf("\033[0m");
 }
 
+// #define dbg(fmt, ...) printf(fmt, ##__VA_ARGS__)
+#define dbg(fmt, ...)
+
 int main(int argc, char *argv[])
 {
     char tiles[width][height] = {0};
-
-    printf("gen test\n");
+    dbg("gen test\n");
 
     // init tiles
     for (int y = 0; y < height; y++)
     {
-        printf("\n");
         for (int x = 0; x < width; x++)
         {
             tiles[x][y] = UNTOUCHED;
-            printf("%c", tiles[x][y]);
         }
     }
+    const bool straghten = false;
+    const bool straghten_left = true;
 
-    tiles[0][0] = LAND; // Seed the first tile
-    int no_tiles = 0;
-    for (int i = 1; i < width * height; i++)
+    bool invert;
+    for (int i = 0; i < width * height; i++)
     {
+        invert = !invert;
         int x = i % width;
         int y = i / width;
+
+        if (straghten)
+        {
+
+            if (invert)
+            {
+                x = width - x;
+            }
+        }
 
 #define ABOVE (y > 0 ? tiles[x][y - 1] : UNTOUCHED)
 #define BELOW (y < height - 1 ? tiles[x][y + 1] : UNTOUCHED)
 #define LEFT (x > 0 ? tiles[x - 1][y] : UNTOUCHED)
 #define RIGHT (x < width - 1 ? tiles[x + 1][y] : UNTOUCHED)
-#define land_chance 50
-#define coast_chance 50
-#define sea_chance 50
+#define ANY(what) (ABOVE == what || BELOW == what || LEFT == what || RIGHT == what)
 #define get_rand() _rand_in_range(0, 100)
 
         char around[4] = {0};
         int around_count = 0;
         get_around(tiles, x, y, around, &around_count);
 
-        printf("x: %d, y: %d, above: %c, below: %c, left: %c, right: %c\n",
-               x, y,
-               ABOVE,
-               BELOW,
-               LEFT,
-               RIGHT);
+        dbg("x: %d, y: %d, above: %c, below: %c, left: %c, right: %c\n",
+            x, y,
+            ABOVE,
+            BELOW,
+            LEFT,
+            RIGHT);
 
-// land is allowed to be adjacent to land or coast
-// coast is allowed to be adjacent to land, coast, or sea
-// sea is allowed to be adjacent to coast or sea
-#define is_around(what) (ABOVE == what || BELOW == what || LEFT == what || RIGHT == what)
+        // land is allowed to be adjacent to land or coast
+        // coast must be adjacent to land, and sea
+        // sea is allowed to be adjacent to coast or sea
         char new_tile = UNTOUCHED;
-        bool can_be_land = is_around(LAND) || is_around(COAST);
-        bool can_be_coast = is_around(LAND) || is_around(COAST) || is_around(SEA);
-        bool can_be_sea = is_around(COAST) || is_around(SEA);
-        printf("can_be_land: %d, can_be_coast: %d, can_be_sea: %d\n", can_be_land, can_be_coast, can_be_sea);
+        bool any_sea = ANY(SEA);
+        bool any_coast = ANY(COAST);
+        bool any_land = ANY(LAND);
 
-        // if it can only be one type then it should be that type
-        if (can_be_coast && !can_be_sea && !can_be_land)
+        bool could_be_land = true;
+        bool could_be_coast = true;
+        bool could_be_sea = true;
+
+        if (any_sea)
+            could_be_land = false;
+
+        if (any_land)
+            could_be_sea = false;
+
+        ASSUME(could_be_land || could_be_coast || could_be_sea);
+
+    reroll:
+        if (could_be_land && get_rand() < 10)
+        {
+            new_tile = LAND;
+        }
+        else if (could_be_coast && get_rand() < 1)
         {
             new_tile = COAST;
         }
-
-        if (!can_be_coast && can_be_sea && !can_be_land)
+        else if (could_be_sea && get_rand() < 15)
         {
             new_tile = SEA;
         }
 
-        if (!can_be_coast && !can_be_sea && can_be_land)
+        if (new_tile != UNTOUCHED)
         {
-            new_tile = LAND;
+
+            ASSUME(new_tile == LAND || new_tile == COAST || new_tile == SEA);
+
+            tiles[x][y] = new_tile;
+            dbg("new_tile: %c\n", new_tile);
+            continue;
         }
-
-        // if it can be two types then it should be the type with the highest chance
-        if (can_be_coast && can_be_sea && !can_be_land)
-        {
-            if (get_rand() < coast_chance)
-            {
-                new_tile = COAST;
-            }
-            else
-            {
-                new_tile = SEA;
-            }
-        }
-
-        if (can_be_coast && !can_be_sea && can_be_land)
-        {
-            if (get_rand() < land_chance)
-            {
-                new_tile = LAND;
-            }
-            else
-            {
-                new_tile = COAST;
-            }
-        }
-
-        if (!can_be_coast && can_be_sea && can_be_land)
-        {
-            if (get_rand() < land_chance)
-            {
-                new_tile = LAND;
-            }
-            else
-            {
-                new_tile = SEA;
-            }
-        }
-
-        // if it can be all three types then it should be the type with the highest chance
-
-        if (can_be_coast && can_be_sea && can_be_land)
-        {
-            if (get_rand() < land_chance)
-            {
-                new_tile = LAND;
-            }
-            else if (get_rand() < coast_chance)
-            {
-                new_tile = COAST;
-            }
-            else
-            {
-                new_tile = SEA;
-            }
-        }
-
-        tiles[x][y] = new_tile;
-        printf("new_tile: %c\n", new_tile);
+        goto reroll;
 
 #undef ABOVE
 #undef BELOW
 #undef LEFT
 #undef RIGHT
+#undef ANY
     }
 
     for (int i = 0; i < width * height; i++)
@@ -263,7 +236,6 @@ int main(int argc, char *argv[])
             printf("\n");
         }
     }
-    printf("\nno_tiles: %d\n", no_tiles);
 
     return 0;
 }
