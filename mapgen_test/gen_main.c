@@ -15,7 +15,7 @@ typedef enum
 
 // #define width 79
 // #define height 20
-#define width 108
+#define width 79
 #define height 10
 
 int get_dev_urandom()
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
         ASSUME(could_be_land || could_be_coast || could_be_sea);
 
     reroll:
-        if (could_be_land && get_rand() < 10)
+        if (could_be_land && get_rand() < 2)
         {
             new_tile = LAND;
         }
@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
         {
             new_tile = COAST;
         }
-        else if (could_be_sea && get_rand() < 15)
+        else if (could_be_sea && get_rand() < 2)
         {
             new_tile = SEA;
         }
