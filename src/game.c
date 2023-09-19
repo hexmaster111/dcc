@@ -92,10 +92,13 @@ void game_layout_sections(GameState_ptr gs)
     ASSUME(first != NULL);
 
     //-1 for first
-    for (int i = 0; i < ((MAP_SIZE * MAP_SIZE) - 1); i++)
+    for (int i = 0; i < (MAP_SIZE * MAP_SIZE); i++)
     {
-        // TILE *t = get_unassigned_tile_near(&map, &used, first);
-        // ASSUME(t != NULL);
+        int row = i / MAP_SIZE;
+        int col = i % MAP_SIZE;
+        TILE *t = game_get_tile_at_pos(&map, row, col);
+        t->section = &gs->sections.s[0];// debug set something
+        ASSUME(t != NULL);
     }
 
     gs->map = map;

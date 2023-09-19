@@ -91,6 +91,7 @@ void render_exits(TILE *tile, int c_y, int c_x)
 
 void render_section(SECTION *s, int c_y, int c_x)
 {
+    ASSUME(s != NULL);
     // draw render data
     int y = 0, x = 0, curr_ch = 0;
     bool done = false;
