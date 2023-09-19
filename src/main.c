@@ -11,7 +11,6 @@
 
 int main(int argc, char *argv[])
 {
-reset:
   int ch;
   GameState gs = {0};
   RENDER rnd = {0};
@@ -34,10 +33,7 @@ reset:
   render_gamestate(&gs, &rnd);
   while ((ch = getch()) != KEY_F(1))
   {
-    if (ch == KEY_F(2))
-    {
-      goto reset;
-    }
+
 
     if (game_proc_keypress(&gs, ch))
     {
