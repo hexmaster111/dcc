@@ -97,7 +97,7 @@ void game_layout_sections(GameState_ptr gs)
         int row = i / MAP_SIZE;
         int col = i % MAP_SIZE;
         TILE *t = game_get_tile_at_pos(&map, row, col);
-        t->section = &gs->sections.s[0];// debug set something
+        t->section = &gs->sections.s[0]; // debug set something
         ASSUME(t != NULL);
     }
 
@@ -122,15 +122,40 @@ int game_proc_keypress(GameState_ptr gs, int ch)
 {
     switch (ch)
     {
+
+    case '1':
+        gs->player.pos.x--;
+        gs->player.pos.y--;
+        break;
+    case '3':
+        gs->player.pos.x++;
+        gs->player.pos.y--;
+        break;
+
+    case '7':
+        gs->player.pos.x--;
+        gs->player.pos.y++;
+        break;
+
+    case '9':
+        gs->player.pos.x++;
+        gs->player.pos.y++;
+        break;
+
+
+    case '2':
     case KEY_UP:
         gs->player.pos.y--;
         break;
+    case '8':
     case KEY_DOWN:
         gs->player.pos.y++;
         break;
+    case '4':
     case KEY_LEFT:
         gs->player.pos.x--;
         break;
+    case '6':
     case KEY_RIGHT:
         gs->player.pos.x++;
         break;
