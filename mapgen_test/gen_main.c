@@ -13,10 +13,8 @@ typedef enum
     SEA = 'S'
 } Tile;
 
-// #define width 79
-// #define height 20
 #define width 79
-#define height 10
+#define height 20
 
 int get_dev_urandom()
 {
@@ -43,7 +41,8 @@ int _rand_in_range(int min, int max)
     return _rand() % (max - min + 1) + min;
 }
 
-void get_around(char tiles[width][height], int x, int y, char around[4], int *around_count)
+void get_around(char tiles[width][height], int x, int y, char around[4],
+                int *around_count)
 {
     if (x > 0)
     {
@@ -110,9 +109,14 @@ int main(int argc, char *argv[])
         }
     }
 
-    const bool straghten = true;
+    // Option for the mapgen to apply straghening
+    bool straghten = true;
 
+    // toggles every line when straghten is true, used to flip the way we
+    // scan the array to prevent weard generation patterns
     bool scan_line_backwards = true;
+    int land_count = 0, sea_count = 0, coast_count = 0;
+
     for (int i = 0; i < width * height; i++)
     {
         scan_line_backwards = !scan_line_backwards;
@@ -180,14 +184,17 @@ int main(int argc, char *argv[])
         if (could_be_land && get_rand() < 2)
         {
             new_tile = LAND;
+            land_count++;
         }
         else if (could_be_coast && get_rand() < 1)
         {
             new_tile = COAST;
+            coast_count++;
         }
-        else if (could_be_sea && get_rand() < 2)
+        else if (could_be_sea && get_rand() < 3)
         {
             new_tile = SEA;
+            sea_count++;
         }
 
         if (new_tile != UNTOUCHED)
@@ -248,6 +255,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("exiting\n");
+    printf("land %d, sea %d, coast %d\n", land_count, sea_count, coast_count);
     return 0;
 }

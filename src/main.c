@@ -27,13 +27,15 @@ int main(int argc, char *argv[])
   render_init(&rnd);
   game_init(&gs);
   // TODO: this should be done by the level picker or something...
-  game_load_section(&gs, "section");
-  game_layout_sections(&gs);
+  parse_load_section(&gs, "section");
+  ASSUME(gs.sections.count > 0);
+  ASSUME(gs.sections.s != NULL);
+
+  game_gen_map(&gs);
 
   render_gamestate(&gs, &rnd);
   while ((ch = getch()) != KEY_F(1))
   {
-
 
     if (game_proc_keypress(&gs, ch))
     {
@@ -48,22 +50,6 @@ int main(int argc, char *argv[])
   return 0;
 }
 
-void init_win_params(WIN *p_win, int w, int h)
-{
-  p_win->height = h;
-  p_win->width = w;
-  p_win->starty = (LINES - p_win->height) / 2;
-  p_win->startx = (COLS - p_win->width) / 2;
-
-  p_win->border.ls = '|';
-  p_win->border.rs = '|';
-  p_win->border.ts = '-';
-  p_win->border.bs = '-';
-  p_win->border.tl = '+';
-  p_win->border.tr = '+';
-  p_win->border.bl = '+';
-  p_win->border.br = '+';
-}
 void print_win_params(WIN *p_win)
 {
 #ifdef _DEBUG

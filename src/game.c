@@ -1,6 +1,7 @@
 #include "game.h"
 #include "assume.h"
 #include "global.h"
+#include "tile_queue.h"
 #include <curses.h>
 #include <string.h>
 #include <dirent.h>
@@ -28,6 +29,24 @@ typedef const char *err;
 // T6:
 // T7:
 
+#define SECT_LAYOUT_FLAG_HAS_BEEN_PLACED 1
+int tile_is_placed(TILE *t)
+{
+    return t->layout_flags & SECT_LAYOUT_FLAG_HAS_BEEN_PLACED;
+}
+
+void tile_set_placed(TILE *t)
+{
+    t->layout_flags |= SECT_LAYOUT_FLAG_HAS_BEEN_PLACED;
+}
+
+void tile_set_section(TILE *t, SECTION *s)
+{
+    ASSUME(t != NULL);
+    ASSUME(s != NULL);
+    t->section = s;
+}
+
 TILE *game_get_tile_at_pos(MAP *map, int y_line, int x_col)
 {
     if (y_line < 0 || y_line >= MAP_SIZE)
@@ -36,16 +55,15 @@ TILE *game_get_tile_at_pos(MAP *map, int y_line, int x_col)
     if (x_col < 0 || x_col >= MAP_SIZE)
         return NULL;
 
-    return &map->map[y_line][x_col];
+    map->tiles[y_line][x_col].map_pos.x = x_col;
+    map->tiles[y_line][x_col].map_pos.y = y_line;
+
+    return &map->tiles[y_line][x_col];
 }
 
-bool is_tile_unused(TILE *t)
-{
-    return t->section == NULL;
-}
-
+typedef int USED_TILE;
 /// @brief Returns a unique random tile from the given map
-TILE *get_random_unused_tile(MAP *map, int *used)
+TILE *get_random_unused_tile(MAP *map, USED_TILE *used)
 {
     // Pick a random number from 0 -> MAP_SIZE 3^2
     int r0 = rand() % (MAP_SIZE * MAP_SIZE);
@@ -66,7 +84,16 @@ TILE *get_random_unused_tile(MAP *map, int *used)
     return game_get_tile_at_pos(map, lin, col);
 }
 
-void game_layout_sections(GameState_ptr gs)
+void tile_queue_push_if_not_null_and_not_placed(XY_QUEUE *q, TILE *t)
+{
+    ASSUME(q != NULL);
+    if (t != NULL && !tile_is_placed(t))
+    {
+        xy_queue_push(q, &t->map_pos);
+    }
+}
+
+void game_gen_map(GameState_ptr gs)
 {
     MAP map = {0};
 
@@ -87,24 +114,49 @@ void game_layout_sections(GameState_ptr gs)
         ASSUME(tile != NULL);
     }
 
-    int used = 0;
+    USED_TILE used = (USED_TILE)0;
     TILE *first = get_random_unused_tile(&map, &used);
     ASSUME(first != NULL);
-
-    //-1 for first
-    for (int i = 0; i < (MAP_SIZE * MAP_SIZE); i++)
+    XY first_pos = first->map_pos;
+    // TODO: save the xy and just get tile at pos
+    //  flood fill the map with sections
+    XY_QUEUE q = {0};
+    xy_queue_init(&q, MAP_SIZE * MAP_SIZE);
+    xy_queue_push(&q, &first_pos);
+    int tiles_set = 0;
+    while (!xy_queue_is_empty(&q))
     {
-        int row = i / MAP_SIZE;
-        int col = i % MAP_SIZE;
-        TILE *t = game_get_tile_at_pos(&map, row, col);
-        t->section = &gs->sections.s[0]; // debug set something
+        XY *pos = xy_queue_pop(&q);
+        ASSUME(pos != NULL);
+        int x = pos->x;
+        int y = pos->y;
+
+        // if this tile has been place, or is off grid, skip it
+        if (x < 0 || y < 0 || x >= MAP_SIZE || y >= MAP_SIZE)
+            continue;
+
+        TILE *t = game_get_tile_at_pos(&map, y, x);
         ASSUME(t != NULL);
+
+        if (tile_is_placed(t))
+            continue;
+
+        t->section = &gs->sections.s[0];
+        tile_set_placed(t);
+        tiles_set++;
+
+        // add all the tiles around this one to the queue
+
+        tile_queue_push_if_not_null_and_not_placed(&q, game_get_tile_at_pos(&map, y - 1, x));
+        tile_queue_push_if_not_null_and_not_placed(&q, game_get_tile_at_pos(&map, y + 1, x));
+        tile_queue_push_if_not_null_and_not_placed(&q, game_get_tile_at_pos(&map, y, x - 1));
+        tile_queue_push_if_not_null_and_not_placed(&q, game_get_tile_at_pos(&map, y, x + 1));
     }
 
     gs->map = map;
 }
 
-// END GAME LAYOUT ##################################################################
+// END GAME LAYOUT ########################################################
 
 void game_init(GameState_ptr gs)
 {
@@ -112,6 +164,25 @@ void game_init(GameState_ptr gs)
     gs->player.pos.y = 17;
     gs->sections.count = 0;
     gs->sections.s = NULL;
+
+    for (int rows = 0; rows < MAP_SIZE; rows++)
+    {
+        for (int cols = 0; cols < MAP_SIZE; cols++)
+        {
+            TILE *tile = game_get_tile_at_pos(&gs->map, rows, cols);
+            tile->map_pos.x = cols;
+            tile->map_pos.y = rows;
+            ASSUME(tile != NULL);
+            tile->section = NULL;
+            tile->layout_flags = 0;
+            gs->map.tiles[rows][cols] = *tile;
+        }
+    }
+
+    ASSUME(gs->map.tiles[0][1].map_pos.x == 1);
+    ASSUME(gs->map.tiles[0][1].map_pos.y == 0);
+    ASSUME(gs->map.tiles[1][0].map_pos.x == 0);
+    ASSUME(gs->map.tiles[1][0].map_pos.y == 1);
 };
 
 void game_free(GameState_ptr gs)
@@ -141,7 +212,6 @@ int game_proc_keypress(GameState_ptr gs, int ch)
         gs->player.pos.x++;
         gs->player.pos.y++;
         break;
-
 
     case '2':
     case KEY_UP:
@@ -218,6 +288,11 @@ err parse_gl_section_gen(struct parser_state *p, FILE *f, SECTION *section)
         p->arg[i] = new_num;
     }
 
+    section->gen_key.top = p->arg[0];
+    section->gen_key.bottem = p->arg[1];
+    section->gen_key.left = p->arg[2];
+    section->gen_key.right = p->arg[3];
+
     return NULL;
 }
 
@@ -290,17 +365,16 @@ err parse_building(struct parser_state *p, FILE *f, SECTION *section)
 
         if (ch == EOF)
         {
-            glog_printf("<EOF>");
+            // glog_printf("<EOF>");
             return "got EOF reading building";
         }
 
         section->render_data[curr_ch] = ch;
-        glog_printf("%c\n", ch);
+        // glog_printf("%c\n", ch);
         curr_ch++;
     }
 
-    glog_printf("Loaded building:\n%s\n", section->render_data);
-    glog_printf("Building had %d chars expected got %d",
+    glog_printf("Building had %d chars expected got %d\n",
                 expected_chars_count,
                 curr_ch);
     return NULL;
@@ -309,6 +383,7 @@ err parse_building(struct parser_state *p, FILE *f, SECTION *section)
 // NULL on OK
 err __load_single_section(SECTION *section, char *file)
 {
+    glog_printf("opening file %s for loading\n", file);
     FILE *f = fopen(file, "r");
     struct parser_state p = {};
     const char *err = NULL;
@@ -316,9 +391,6 @@ err __load_single_section(SECTION *section, char *file)
     /*
         Header format:
         [item_type(arg1, arg2, arg3, arg4)]
-        where item_type is the type of item, and arg1-4 are the arguments for that item
-
-        the content is the actual data for the item, for example, a building might look like:
         [building(1, 10, 10)]
         ##########
         #        #
@@ -511,11 +583,17 @@ err __load_single_section(SECTION *section, char *file)
     parse_dgb("Done parsing file\n");
 
 end:
+    glog_printf("Building keys: Top:%x Botem:%x Left:%x Rigt:%x\n",
+                section->gen_key.top,
+                section->gen_key.bottem,
+                section->gen_key.left,
+                section->gen_key.right);
+    glog_printf("render data:\n%s", section->render_data);
     fclose(f);
     return err;
 }
 
-void game_load_section(GameState_ptr gs, char *folder)
+void parse_load_section(GameState_ptr gs, char *folder)
 {
     // find all the .sec files, load them
     DIR *d;
@@ -546,8 +624,7 @@ void game_load_section(GameState_ptr gs, char *folder)
         SECTION *s = NULL;
         s = &gs->sections.s[gs->sections.count - 1]; // ptr to the new section
         // zero out the section
-        s->exits.count = 0;
-        s->exits.exits = NULL;
+        *s = (SECTION){0};
 
         const char *err = __load_single_section(s, filepath);
         if (err != NULL)
