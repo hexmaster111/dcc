@@ -234,11 +234,14 @@ void game_free(GameState_ptr gs)
 {
 }
 
+// #define BEEPY_MODE
+#define PC_MODE
+
 int game_proc_keypress(GameState_ptr gs, int ch)
 {
     switch (ch)
     {
-
+#ifdef BEEPY_MODE
     case '1':
         gs->player.pos.x--;
         gs->player.pos.y--;
@@ -274,6 +277,52 @@ int game_proc_keypress(GameState_ptr gs, int ch)
     case KEY_RIGHT:
         gs->player.pos.x++;
         break;
+
+#endif
+
+#ifdef PC_MODE
+    case KEY_UP:
+    case 8:
+        gs->player.pos.y--;
+        break;
+    case KEY_DOWN:
+    case 2:
+        gs->player.pos.y++;
+        break;
+
+    case KEY_LEFT:
+    case 4:
+        gs->player.pos.x--;
+        break;
+
+    case KEY_RIGHT:
+    case 6:
+        gs->player.pos.x++;
+        break;
+
+    case 7:
+        gs->player.pos.x--;
+        gs->player.pos.y--;
+        break;
+
+    case 9:
+        gs->player.pos.x++;
+        gs->player.pos.y--;
+        break;
+
+    case 1:
+        gs->player.pos.x--;
+        gs->player.pos.y++;
+        break;  
+
+    case 3:
+        gs->player.pos.x++;
+        gs->player.pos.y++;
+        break;
+#endif
+
+
+
     }
 
     return 0; // non 0 to quit
