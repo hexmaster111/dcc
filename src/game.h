@@ -83,14 +83,16 @@ typedef struct tile_t
 {
     SECTION *section;
     XY map_pos;
+    int8_t layout_flags;
 } TILE;
+
 #define MAP_SIZE 3
 
 typedef struct map_t
 {
 
     // map[LINE Y][COL X]
-    TILE map[MAP_SIZE][MAP_SIZE];
+    TILE tiles[MAP_SIZE][MAP_SIZE];
 } MAP;
 
 /// @brief Game state
@@ -106,8 +108,8 @@ typedef struct gamestate_t
 void game_init(GameState_ptr);
 int game_proc_keypress(GameState_ptr, int);
 void game_free(GameState_ptr);
-void game_load_section(GameState_ptr gs, char *filepath);
-void game_layout_sections(GameState_ptr gs);
+void parse_load_section(GameState_ptr gs, char *filepath);
+void game_gen_map(GameState_ptr gs);
 TILE *game_get_tile_at_pos(MAP *map, int y_line, int x_col);
 
 #endif // __GAME_H

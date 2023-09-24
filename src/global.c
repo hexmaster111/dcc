@@ -18,6 +18,8 @@ void glog_init(FILE *logfile)
 
 void glog_destroy(void)
 {
+    ASSUME(g.log_file != NULL);
+    glog_printf("Log file closed\n");
     fclose(g.log_file);
 }
 

@@ -1,6 +1,8 @@
 #include "game.h"
 #include "assume.h"
 #include "global.h"
+#include "tile_queue.h"
+#include "parser.h"
 #include <curses.h>
 #include <string.h>
 #include <dirent.h>
@@ -9,24 +11,26 @@
 #ifndef DT_REG
 #define DT_REG 8 // idk why, but this wasnt defined in my dirent.h but it compiled fine
 #endif
-typedef const char *err;
 
 // START GAME LAYOUT ##################################################################
 
-// 1: Pick a TILE at random
-// 2: Assinge it a random section
+#define SECT_LAYOUT_FLAG_HAS_BEEN_PLACED 1
+int tile_is_placed(TILE *t)
+{
+    return t->layout_flags & SECT_LAYOUT_FLAG_HAS_BEEN_PLACED;
+}
 
-// A must be next to B
-// C must be below A
-// A cant be next to D
+void tile_set_placed(TILE *t)
+{
+    t->layout_flags |= SECT_LAYOUT_FLAG_HAS_BEEN_PLACED;
+}
 
-// T0:A
-// T1:B
-// T2:A
-// T4:
-// T5:
-// T6:
-// T7:
+void tile_set_section(TILE *t, SECTION *s)
+{
+    ASSUME(t != NULL);
+    ASSUME(s != NULL);
+    t->section = s;
+}
 
 TILE *game_get_tile_at_pos(MAP *map, int y_line, int x_col)
 {
@@ -36,16 +40,25 @@ TILE *game_get_tile_at_pos(MAP *map, int y_line, int x_col)
     if (x_col < 0 || x_col >= MAP_SIZE)
         return NULL;
 
-    return &map->map[y_line][x_col];
+    map->tiles[y_line][x_col].map_pos.x = x_col;
+    map->tiles[y_line][x_col].map_pos.y = y_line;
+
+    return &map->tiles[y_line][x_col];
 }
 
-bool is_tile_unused(TILE *t)
+void section_list_add(SECTION_LIST *list, SECTION *s)
 {
-    return t->section == NULL;
+    ASSUME(list != NULL);
+    ASSUME(s != NULL);
+    list->count++;
+    list->s = realloc(list->s, sizeof(SECTION) * list->count);
+    ASSUME(list->s != NULL);
+    list->s[list->count - 1] = *s;
 }
 
+typedef int USED_TILE;
 /// @brief Returns a unique random tile from the given map
-TILE *get_random_unused_tile(MAP *map, int *used)
+TILE *get_random_unused_tile(MAP *map, USED_TILE *used)
 {
     // Pick a random number from 0 -> MAP_SIZE 3^2
     int r0 = rand() % (MAP_SIZE * MAP_SIZE);
@@ -66,7 +79,61 @@ TILE *get_random_unused_tile(MAP *map, int *used)
     return game_get_tile_at_pos(map, lin, col);
 }
 
-void game_layout_sections(GameState_ptr gs)
+void tile_queue_push_if_not_null_and_not_placed(XY_QUEUE *q, TILE *t)
+{
+    ASSUME(q != NULL);
+    if (t != NULL && !tile_is_placed(t))
+    {
+        xy_queue_push(q, &t->map_pos);
+    }
+}
+
+void tile_choose_section(TILE *t,
+                         TILE *above, TILE *below,
+                         TILE *left, TILE *right,
+                         SECTION_LIST *sections)
+{
+    ASSUME(t != NULL);
+    ASSUME(sections != NULL);
+
+    // A sections genkey is a bitfield that is essentaly its socket layout,
+    // if two size match, they can be placed next to each other
+
+    // List of sections that can be placed here
+    SECTION_LIST can_place = {0};
+
+    // for each section
+    for (int i = 0; i < sections->count; i++)
+    {
+        SECTION *s = &sections->s[i];
+        ASSUME(s != NULL);
+
+#define not_null(x) (x != NULL && x->section != NULL)
+        if (not_null(left) && s->gen_key.left != left->section->gen_key.right)
+            continue;
+        if (not_null(right) && s->gen_key.right != right->section->gen_key.left)
+            continue;
+        if (not_null(above) && s->gen_key.top != above->section->gen_key.bottem)
+            continue;
+        if (not_null(below) && s->gen_key.bottem != below->section->gen_key.top)
+            continue;
+#undef not_null
+
+        // if we got here, this section can be placed here
+        section_list_add(&can_place, s);
+    }
+
+    // if we have no sections that can be placed here, we have a problem
+    ASSUME(can_place.count > 0);
+
+    // pick a random section from the list of sections that can be placed here
+    int r = rand() % can_place.count;
+    SECTION *s = &can_place.s[r];
+    ASSUME(s != NULL);
+    t->section = s;
+}
+
+void game_gen_map(GameState_ptr gs)
 {
     MAP map = {0};
 
@@ -87,24 +154,54 @@ void game_layout_sections(GameState_ptr gs)
         ASSUME(tile != NULL);
     }
 
-    int used = 0;
+    USED_TILE used = (USED_TILE)0;
     TILE *first = get_random_unused_tile(&map, &used);
     ASSUME(first != NULL);
-
-    //-1 for first
-    for (int i = 0; i < (MAP_SIZE * MAP_SIZE); i++)
+    XY first_pos = first->map_pos;
+    //  flood fill the map with sections
+    XY_QUEUE q = {0};
+    xy_queue_init(&q, MAP_SIZE * MAP_SIZE);
+    xy_queue_push(&q, &first_pos);
+    int tiles_set = 0;
+    while (!xy_queue_is_empty(&q))
     {
-        int row = i / MAP_SIZE;
-        int col = i % MAP_SIZE;
-        TILE *t = game_get_tile_at_pos(&map, row, col);
-        t->section = &gs->sections.s[0]; // debug set something
+        XY *pos = xy_queue_pop(&q);
+        ASSUME(pos != NULL);
+        int x = pos->x;
+        int y = pos->y;
+
+        // if this tile has been place, or is off grid, skip it
+        if (x < 0 || y < 0 || x >= MAP_SIZE || y >= MAP_SIZE)
+            continue;
+
+        TILE *t = game_get_tile_at_pos(&map, y, x);
         ASSUME(t != NULL);
+
+        if (tile_is_placed(t))
+            continue;
+
+        TILE *above = game_get_tile_at_pos(&map, y - 1, x);
+        TILE *below = game_get_tile_at_pos(&map, y + 1, x);
+        TILE *left = game_get_tile_at_pos(&map, y, x - 1);
+        TILE *right = game_get_tile_at_pos(&map, y, x + 1);
+
+        tile_choose_section(t, above, below, left, right, &gs->sections);
+        // t->section = &gs->sections.s[2];
+
+        tile_set_placed(t);
+        tiles_set++;
+
+        // add all the tiles around this one to the queue
+        tile_queue_push_if_not_null_and_not_placed(&q, above);
+        tile_queue_push_if_not_null_and_not_placed(&q, below);
+        tile_queue_push_if_not_null_and_not_placed(&q, left);
+        tile_queue_push_if_not_null_and_not_placed(&q, right);
     }
 
     gs->map = map;
 }
 
-// END GAME LAYOUT ##################################################################
+// END GAME LAYOUT ########################################################
 
 void game_init(GameState_ptr gs)
 {
@@ -112,6 +209,25 @@ void game_init(GameState_ptr gs)
     gs->player.pos.y = 17;
     gs->sections.count = 0;
     gs->sections.s = NULL;
+
+    for (int rows = 0; rows < MAP_SIZE; rows++)
+    {
+        for (int cols = 0; cols < MAP_SIZE; cols++)
+        {
+            TILE *tile = game_get_tile_at_pos(&gs->map, rows, cols);
+            tile->map_pos.x = cols;
+            tile->map_pos.y = rows;
+            ASSUME(tile != NULL);
+            tile->section = NULL;
+            tile->layout_flags = 0;
+            gs->map.tiles[rows][cols] = *tile;
+        }
+    }
+
+    ASSUME(gs->map.tiles[0][1].map_pos.x == 1);
+    ASSUME(gs->map.tiles[0][1].map_pos.y == 0);
+    ASSUME(gs->map.tiles[1][0].map_pos.x == 0);
+    ASSUME(gs->map.tiles[1][0].map_pos.y == 1);
 };
 
 void game_free(GameState_ptr gs)
@@ -213,402 +329,3 @@ int game_proc_keypress(GameState_ptr gs, int ch)
 }
 
 // TODO: Move this to a seperate file ---------- PARSER
-struct parser_state
-{
-    int curr;
-    bool parsed_header;
-    bool got_header_p0; //[ - start header
-    bool got_header_p1; //( - start arg
-    bool got_header_p2; //) - end arg
-    bool got_header_p3; //] - end header
-
-    int curr_arg;
-    int arg[4];
-
-    char *header_item_type;
-    bool in_comment;
-    int buff_pos;
-    char buffer[30 * 30];
-};
-
-struct building_args
-{
-    int type;
-    WH wh;
-};
-
-// Swap for parse debugging info
-// #define parse_dgb(...) glog_printf(__VA_ARGS__)
-#define parse_dgb(...)
-
-err parse_gl_section_gen(struct parser_state *p, FILE *f, SECTION *section)
-{
-
-    ASSUME(p->header_item_type != NULL);
-    ASSUME(strcmp(p->header_item_type, "section_gen") == 0);
-    //  so we may see the number '10101' but it is actualy convaing '0b10101'
-
-    for (int i = 0; i < 4; i++)
-    {
-        if (p->arg[i] == 0)
-            continue;
-
-        int tmp = p->arg[i];
-        int curr = 0;
-        int new_num = 0;
-        while (tmp != 0)
-        {
-            int rem = tmp % 10;
-            tmp /= 10;
-            new_num += rem * pow(2, curr);
-            curr++;
-        }
-        p->arg[i] = new_num;
-    }
-
-    return NULL;
-}
-
-err parse_exit(struct parser_state *p, FILE *f, SECTION *section)
-{
-    // types "exit"
-    ASSUME(p->header_item_type != NULL);
-    ASSUME(strcmp(p->header_item_type, "exit") == 0);
-
-    // alloc room for new exit
-    section->exits.count++;
-    section->exits.exits = realloc(section->exits.exits, sizeof(EXIT) * section->exits.count);
-    EXIT *e = &section->exits.exits[section->exits.count - 1];
-
-    e->type = p->arg[0];
-    e->pos.x = p->arg[1] - 1;
-    e->pos.y = p->arg[2] - 1;
-    e->c = (char)p->arg[3];
-
-    parse_dgb("Exit: type: %d, x: %d, y: %d, c: '%c'\n",
-              e->type,
-              e->pos.x,
-              e->pos.y,
-              e->c);
-
-    if (e->type == 0)
-    {
-        return "exit type 0 is not valid";
-    }
-
-    if (e->pos.x == 0 || e->pos.y == 0)
-    {
-        return "exit pos is 1 based";
-    }
-
-    return NULL;
-}
-
-err parse_building(struct parser_state *p, FILE *f, SECTION *section)
-{
-
-    ASSUME(p->header_item_type != NULL);
-    ASSUME(strcmp(p->header_item_type, "building") == 0);
-
-    // Buildings now MUST be 10x10
-    section->bounds.w = 10; // -1 because we are 0 based, humans are 1 based
-    section->bounds.h = 10;
-
-    int expected_chars_count = (section->bounds.w * section->bounds.h) +
-                               (section->bounds.h);
-
-    section->render_data = malloc(expected_chars_count + 1);
-    memset(section->render_data, ' ', expected_chars_count);
-    section->render_data[expected_chars_count] = '\0';
-
-    char ch;
-    int curr_ch = 0;
-    bool done = false;
-    while (!done)
-    {
-        ch = fgetc(f);
-
-        if (curr_ch == 0 && ch == '\n')
-            continue;
-
-        if (curr_ch >= expected_chars_count)
-        {
-            done = true; // We still get to finish this current char
-        }
-
-        if (ch == EOF)
-        {
-            glog_printf("<EOF>");
-            return "got EOF reading building";
-        }
-
-        section->render_data[curr_ch] = ch;
-        glog_printf("%c\n", ch);
-        curr_ch++;
-    }
-
-    glog_printf("Loaded building:\n%s\n", section->render_data);
-    glog_printf("Building had %d chars expected got %d",
-                expected_chars_count,
-                curr_ch);
-    return NULL;
-}
-
-// NULL on OK
-err __load_single_section(SECTION *section, char *file)
-{
-    FILE *f = fopen(file, "r");
-    struct parser_state p = {};
-    const char *err = NULL;
-
-    /*
-        Header format:
-        [item_type(arg1, arg2, arg3, arg4)]
-        where item_type is the type of item, and arg1-4 are the arguments for that item
-
-        the content is the actual data for the item, for example, a building might look like:
-        [building(1, 10, 10)]
-        ##########
-        #        #
-        #        #
-        #        #
-        #        #
-        #        #
-        #        #
-        #        #
-        #        #
-        ##########
-    */
-
-    if (f == NULL)
-    {
-        err = "Error opening file";
-        goto end;
-    }
-
-    while ((p.curr = fgetc(f)) != -1)
-    {
-        if (p.curr == '\n' && p.in_comment)
-        {
-            p.in_comment = false;
-        }
-
-        parse_dgb(" %c ", p.curr);
-
-        if (p.curr == '@' && !p.in_comment)
-        {
-            p.in_comment = true;
-        }
-
-        // skip comments
-        if (p.in_comment)
-        {
-            parse_dgb("SKIP\n");
-            continue;
-        }
-        if (!p.got_header_p3)
-        {
-            parse_dgb("HDR\n");
-
-            if (p.curr == EOF)
-            {
-                err = "got EOF reading header";
-                goto end;
-            }
-            if (p.curr == '\n')
-                continue;
-
-            if (!p.got_header_p0)
-            {
-                if (p.curr != '[')
-                    continue;
-
-                p.got_header_p0 = true;
-                continue;
-            }
-
-            // we are reading what kind of item this is
-            if (p.got_header_p0 && !p.got_header_p1)
-            {
-
-                if (p.curr == '(')
-                {
-                    // we found the end of the string, copy the header into the state
-                    p.header_item_type = strdup(p.buffer);
-                    p.got_header_p1 = true;
-                    p.buff_pos = 0;
-                    p.buffer[p.buff_pos] = '\0';
-                    continue;
-                }
-
-                p.buffer[p.buff_pos] = p.curr;
-                p.buff_pos++;
-                continue;
-            }
-
-            if (p.got_header_p1 && !p.got_header_p2)
-            {
-                if (p.curr == ' ')
-                    continue;
-
-                // read to ) or ,
-                if (p.curr == ',')
-                {
-                    parse_dgb("Parsing arg: %s\n", p.buffer);
-
-                    if (p.buffer[0] == '\'')
-                    {
-                        // its a char
-                        p.arg[p.curr_arg] = p.buffer[1];
-                        parse_dgb("Got char: %c\n", p.arg[p.curr_arg]);
-                        p.curr_arg++;
-                        p.buff_pos = 0;
-                        p.buffer[p.buff_pos] = '\0';
-                        continue;
-                    }
-
-                    // save the arg !!COULD BE INDEX OUT OF RAGE HERE!!
-                    p.arg[p.curr_arg] = atoi(p.buffer);
-                    // inc curr
-                    p.curr_arg++;
-
-                    // reset buff
-                    p.buff_pos = 0;
-                    p.buffer[p.buff_pos] = '\0';
-                    continue;
-                }
-
-                if (p.curr == ')')
-                {
-                    p.got_header_p2 = true;
-
-                    if (p.buffer[0] == '\'')
-                    {
-                        // its a char
-                        p.arg[p.curr_arg] = p.buffer[1];
-                        parse_dgb("Got char: %c\n", p.arg[p.curr_arg]);
-                        p.curr_arg++;
-                        p.buff_pos = 0;
-                        p.buffer[p.buff_pos] = '\0';
-                        continue;
-                    }
-
-                    // save the arg !!COULD BE INDEX OUT OF RAGE HERE!!
-                    p.arg[p.curr_arg] = atoi(p.buffer);
-                    // inc curr
-                    p.curr_arg++;
-
-                    p.buff_pos = 0;
-                    p.buffer[p.buff_pos] = '\0';
-                    continue;
-                }
-
-                p.buffer[p.buff_pos] = p.curr;
-                p.buff_pos++;
-                continue;
-            }
-
-            if (p.got_header_p2 && !p.got_header_p3)
-            {
-                if (p.curr == ' ')
-                    continue;
-
-                // read the final ']'
-                if (p.curr == ']')
-                {
-                    p.got_header_p3 = true;
-                }
-            }
-        }
-
-        parse_dgb("Parsing header item: %s\n", p.header_item_type);
-
-#define match(s) strcmp(p.header_item_type, s) == 0
-
-#define check_parse_error(s)                         \
-    if (err != NULL)                                 \
-    {                                                \
-        parse_dgb("Error parsing %s: %s\n", s, err); \
-        goto end;                                    \
-    }                                                \
-    p = (struct parser_state){};                     \
-    continue;
-
-        if (match("exit"))
-        {
-            err = parse_exit(&p, f, section);
-            check_parse_error("exit");
-        }
-
-        if (match("building"))
-        {
-            err = parse_building(&p, f, section);
-            check_parse_error("building");
-        }
-
-        if (match("section_gen"))
-        {
-            err = parse_gl_section_gen(&p, f, section);
-            check_parse_error("section_gen");
-        }
-
-#undef check_parse_error
-#undef match
-    }
-
-    parse_dgb("Done parsing file\n");
-
-end:
-    fclose(f);
-    return err;
-}
-
-void game_load_section(GameState_ptr gs, char *folder)
-{
-    // find all the .sec files, load them
-    DIR *d;
-    struct dirent *dir;
-    d = opendir(folder);
-    if (!d)
-    {
-        parse_dgb("Error opening directory: %s\n", folder);
-        return;
-    }
-
-    while ((dir = readdir(d)) != NULL)
-    {
-        if (dir->d_type != DT_REG)
-            continue;
-
-        char *ext = strrchr(dir->d_name, '.');
-        if (ext != NULL && strcmp(ext, ".sec") != 0)
-            continue;
-
-        char *filepath = malloc(strlen(folder) + strlen(dir->d_name) + 2);
-        strcpy(filepath, folder);
-        strcat(filepath, "/");
-        strcat(filepath, dir->d_name);
-        parse_dgb("Loading section: %s\n", filepath);
-        gs->sections.count++;
-        gs->sections.s = realloc(gs->sections.s, sizeof(SECTION) * gs->sections.count);
-        SECTION *s = NULL;
-        s = &gs->sections.s[gs->sections.count - 1]; // ptr to the new section
-        // zero out the section
-        s->exits.count = 0;
-        s->exits.exits = NULL;
-
-        const char *err = __load_single_section(s, filepath);
-        if (err != NULL)
-        {
-            endwin();
-            glog_printf("Error loading section: %s\nIn File: %s\n", err, filepath);
-            printf("Error loading section: %s\nIn File: %s\n", err, filepath);
-            exit(1);
-        }
-        free(filepath);
-    }
-
-    closedir(d);
-}
-
-// END PARSER ------------------------------------
