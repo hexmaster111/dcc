@@ -381,9 +381,11 @@ void parse_load_section(GameState_ptr gs, char *folder)
 
     while ((dir = readdir(d)) != NULL)
     {
+#define DT_REG 8
+
         if (dir->d_type != DT_REG)
             continue;
-
+#undef DT_REG
         char *ext = strrchr(dir->d_name, '.');
         if (ext != NULL && strcmp(ext, ".sec") != 0)
             continue;
