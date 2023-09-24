@@ -1,0 +1,29 @@
+{
+    "files.associations": {
+        "stdbool.h": "c",
+        "stdint.h": "c",
+        "bit": "c",
+        "*.tcc": "c",
+        "cmath": "c",
+        "complex": "c",
+        "list": "c",
+        "functional": "c",
+        "random": "c",
+        "limits": "c",
+        "tuple": "c",
+        "variant": "c",
+        "dirent.h": "c",
+        "game.h": "c",
+        "curses.h": "c",
+        "cassert": "c",
+        "game_mapper.h": "c",
+        "render.h": "c",
+        "global.h": "c",
+        "format": "c",
+        "array": "cpp",
+        "string_view": "cpp",
+        "initializer_list": "cpp",
+        "span": "cpp"
+    },
+    "cmake.configureOnOpen": true
+}
