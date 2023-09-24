@@ -31,12 +31,17 @@ int main(int argc, char *argv[])
   ASSUME(gs.sections.count > 0);
   ASSUME(gs.sections.s != NULL);
 
+regen:
   game_gen_map(&gs);
 
   render_gamestate(&gs, &rnd);
   while ((ch = getch()) != KEY_F(1))
   {
 
+    if (ch == 'r')
+    {
+      goto regen;
+    }
     if (game_proc_keypress(&gs, ch))
     {
       break;

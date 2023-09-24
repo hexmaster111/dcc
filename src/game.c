@@ -123,15 +123,16 @@ void tile_choose_section(TILE *t,
         SECTION *s = &sections->s[i];
         ASSUME(s != NULL);
 
-#define check(x) (x != NULL && x->section != NULL)
-        if (check(left) && s->gen_key.left != left->section->gen_key.right)
+#define not_null(x) (x != NULL && x->section != NULL)
+        if (not_null(left) && s->gen_key.left != left->section->gen_key.right)
             continue;
-        if (check(right) && s->gen_key.right != right->section->gen_key.left)
+        if (not_null(right) && s->gen_key.right != right->section->gen_key.left)
             continue;
-        if (check(above) && s->gen_key.top != above->section->gen_key.bottem)
+        if (not_null(above) && s->gen_key.top != above->section->gen_key.bottem)
             continue;
-        if (check(below) && s->gen_key.bottem != below->section->gen_key.top)
+        if (not_null(below) && s->gen_key.bottem != below->section->gen_key.top)
             continue;
+#undef not_null
 
         // if we got here, this section can be placed here
         section_list_add(&can_place, s);
@@ -172,7 +173,6 @@ void game_gen_map(GameState_ptr gs)
     TILE *first = get_random_unused_tile(&map, &used);
     ASSUME(first != NULL);
     XY first_pos = first->map_pos;
-    // TODO: save the xy and just get tile at pos
     //  flood fill the map with sections
     XY_QUEUE q = {0};
     xy_queue_init(&q, MAP_SIZE * MAP_SIZE);
