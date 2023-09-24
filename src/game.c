@@ -61,6 +61,16 @@ TILE *game_get_tile_at_pos(MAP *map, int y_line, int x_col)
     return &map->tiles[y_line][x_col];
 }
 
+void section_list_add(SECTION_LIST *list, SECTION *s)
+{
+    ASSUME(list != NULL);
+    ASSUME(s != NULL);
+    list->count++;
+    list->s = realloc(list->s, sizeof(SECTION) * list->count);
+    ASSUME(list->s != NULL);
+    list->s[list->count - 1] = *s;
+}
+
 typedef int USED_TILE;
 /// @brief Returns a unique random tile from the given map
 TILE *get_random_unused_tile(MAP *map, USED_TILE *used)
@@ -91,6 +101,50 @@ void tile_queue_push_if_not_null_and_not_placed(XY_QUEUE *q, TILE *t)
     {
         xy_queue_push(q, &t->map_pos);
     }
+}
+
+void tile_choose_section(TILE *t,
+                         TILE *above, TILE *below,
+                         TILE *left, TILE *right,
+                         SECTION_LIST *sections)
+{
+    ASSUME(t != NULL);
+    ASSUME(sections != NULL);
+
+    // A sections genkey is a bitfield that is essentaly its socket layout,
+    // if two size match, they can be placed next to each other
+
+    // List of sections that can be placed here
+    SECTION_LIST can_place = {0};
+
+    // for each section
+    for (int i = 0; i < sections->count; i++)
+    {
+        SECTION *s = &sections->s[i];
+        ASSUME(s != NULL);
+
+#define check(x) (x != NULL && x->section != NULL)
+        if (check(left) && s->gen_key.left != left->section->gen_key.right)
+            continue;
+        if (check(right) && s->gen_key.right != right->section->gen_key.left)
+            continue;
+        if (check(above) && s->gen_key.top != above->section->gen_key.bottem)
+            continue;
+        if (check(below) && s->gen_key.bottem != below->section->gen_key.top)
+            continue;
+
+        // if we got here, this section can be placed here
+        section_list_add(&can_place, s);
+    }
+
+    // if we have no sections that can be placed here, we have a problem
+    ASSUME(can_place.count > 0);
+
+    // pick a random section from the list of sections that can be placed here
+    int r = rand() % can_place.count;
+    SECTION *s = &can_place.s[r];
+    ASSUME(s != NULL);
+    t->section = s;
 }
 
 void game_gen_map(GameState_ptr gs)
@@ -141,16 +195,22 @@ void game_gen_map(GameState_ptr gs)
         if (tile_is_placed(t))
             continue;
 
-        t->section = &gs->sections.s[0];
+        TILE *above = game_get_tile_at_pos(&map, y - 1, x);
+        TILE *below = game_get_tile_at_pos(&map, y + 1, x);
+        TILE *left = game_get_tile_at_pos(&map, y, x - 1);
+        TILE *right = game_get_tile_at_pos(&map, y, x + 1);
+
+        tile_choose_section(t, above, below, left, right, &gs->sections);
+        // t->section = &gs->sections.s[2];
+
         tile_set_placed(t);
         tiles_set++;
 
         // add all the tiles around this one to the queue
-
-        tile_queue_push_if_not_null_and_not_placed(&q, game_get_tile_at_pos(&map, y - 1, x));
-        tile_queue_push_if_not_null_and_not_placed(&q, game_get_tile_at_pos(&map, y + 1, x));
-        tile_queue_push_if_not_null_and_not_placed(&q, game_get_tile_at_pos(&map, y, x - 1));
-        tile_queue_push_if_not_null_and_not_placed(&q, game_get_tile_at_pos(&map, y, x + 1));
+        tile_queue_push_if_not_null_and_not_placed(&q, above);
+        tile_queue_push_if_not_null_and_not_placed(&q, below);
+        tile_queue_push_if_not_null_and_not_placed(&q, left);
+        tile_queue_push_if_not_null_and_not_placed(&q, right);
     }
 
     gs->map = map;
