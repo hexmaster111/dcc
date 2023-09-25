@@ -8,6 +8,10 @@
 #include <dirent.h>
 #include <ncurses.h>
 
+#ifndef DT_REG
+#define DT_REG 8 // idk why, but this wasnt defined in my dirent.h but it compiled fine
+#endif
+
 struct parser_state
 {
     int curr;
@@ -381,11 +385,10 @@ void parse_load_section(GameState_ptr gs, char *folder)
 
     while ((dir = readdir(d)) != NULL)
     {
-#define DT_REG 8
 
         if (dir->d_type != DT_REG)
             continue;
-#undef DT_REG
+
         char *ext = strrchr(dir->d_name, '.');
         if (ext != NULL && strcmp(ext, ".sec") != 0)
             continue;

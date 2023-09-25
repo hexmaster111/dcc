@@ -8,10 +8,6 @@
 #include <dirent.h>
 #include <math.h>
 
-#ifndef DT_REG
-#define DT_REG 8 // idk why, but this wasnt defined in my dirent.h but it compiled fine
-#endif
-
 // START GAME LAYOUT ##################################################################
 
 #define SECT_LAYOUT_FLAG_HAS_BEEN_PLACED 1
@@ -313,16 +309,13 @@ int game_proc_keypress(GameState_ptr gs, int ch)
     case 1:
         gs->player.pos.x--;
         gs->player.pos.y++;
-        break;  
+        break;
 
     case 3:
         gs->player.pos.x++;
         gs->player.pos.y++;
         break;
 #endif
-
-
-
     }
 
     return 0; // non 0 to quit
