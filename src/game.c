@@ -8,6 +8,9 @@
 #include <dirent.h>
 #include <math.h>
 
+// A TILE is a section of the MAP, a TILE contains a SECTION, a SECTION is a building
+// block of the level data
+
 // START GAME LAYOUT ##################################################################
 
 #define SECT_LAYOUT_FLAG_HAS_BEEN_PLACED 1
@@ -52,20 +55,11 @@ void section_list_add(SECTION_LIST *list, SECTION *s)
     list->s[list->count - 1] = *s;
 }
 
-typedef int USED_TILE;
 /// @brief Returns a unique random tile from the given map
-TILE *get_random_unused_tile(MAP *map, USED_TILE *used)
+TILE *get_random_tile(MAP *map)
 {
     // Pick a random number from 0 -> MAP_SIZE 3^2
     int r0 = rand() % (MAP_SIZE * MAP_SIZE);
-    // if the number was not used continue
-    while (*used & (1 << r0))
-    {
-        // if the number was used, generate a new random number and check it agine
-        r0 = rand() % (MAP_SIZE * MAP_SIZE);
-    }
-    // the number was not used, mark it as used in the used ptr
-    *used |= (1 << r0);
 
     // convert the flat 2d array map over to a row and col
     int lin = r0 / MAP_SIZE;
@@ -150,8 +144,7 @@ void game_gen_map(GameState_ptr gs)
         ASSUME(tile != NULL);
     }
 
-    USED_TILE used = (USED_TILE)0;
-    TILE *first = get_random_unused_tile(&map, &used);
+    TILE *first = get_random_tile(&map);
     ASSUME(first != NULL);
     XY first_pos = first->map_pos;
     //  flood fill the map with sections
@@ -320,5 +313,3 @@ int game_proc_keypress(GameState_ptr gs, int ch)
 
     return 0; // non 0 to quit
 }
-
-// TODO: Move this to a seperate file ---------- PARSER
