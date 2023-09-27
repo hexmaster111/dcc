@@ -33,10 +33,10 @@ void tile_set_section(TILE *t, SECTION *s)
 
 TILE *game_get_tile_at_pos(MAP *map, int y_line, int x_col)
 {
-    if (y_line < 0 || y_line >= MAP_SIZE)
+    if (y_line < 0 || y_line >= MAP_LINE_Y)
         return NULL;
 
-    if (x_col < 0 || x_col >= MAP_SIZE)
+    if (x_col < 0 || x_col >= MAP_COL_X)
         return NULL;
 
     map->tiles[y_line][x_col].map_pos.x = x_col;
@@ -59,11 +59,11 @@ void section_list_add(SECTION_LIST *list, SECTION *s)
 TILE *get_random_tile(MAP *map)
 {
     // Pick a random number from 0 -> MAP_SIZE 3^2
-    int r0 = rand() % (MAP_SIZE * MAP_SIZE);
+    int r0 = rand() % (MAP_COL_X * MAP_LINE_Y);
 
     // convert the flat 2d array map over to a row and col
-    int lin = r0 / MAP_SIZE;
-    int col = r0 % MAP_SIZE;
+    int lin = r0 / MAP_COL_X;
+    int col = r0 % MAP_COL_X;
 
     // return the actual tile at the position that we just found
     return game_get_tile_at_pos(map, lin, col);
@@ -76,6 +76,13 @@ void tile_queue_push_if_not_null_and_not_placed(XY_QUEUE *q, TILE *t)
     {
         xy_queue_push(q, &t->map_pos);
     }
+}
+
+void map_array_i_to_xy_pos(int i, XY *pos)
+{
+    ASSUME(pos != NULL);
+    pos->x = i % MAP_COL_X;
+    pos->y = i / MAP_COL_X;
 }
 
 void tile_choose_section(TILE *t,
@@ -136,11 +143,13 @@ void game_gen_map(GameState_ptr gs)
     }
 
     // null checking them all before i go random on them
-    for (int i = 0; i < MAP_SIZE * MAP_SIZE; i++)
+    for (int i = 0; i < MAP_COL_X * MAP_LINE_Y; i++)
     {
-        int lin = i / MAP_SIZE;
-        int col = i % MAP_SIZE;
-        TILE *tile = game_get_tile_at_pos(&map, lin, col);
+        // int lin = i / MAP_COL_X;
+        // int col = i % MAP_COL_X;
+        XY pos = {0};
+        map_array_i_to_xy_pos(i, &pos);
+        TILE *tile = game_get_tile_at_pos(&map, pos.y, pos.x);
         ASSUME(tile != NULL);
     }
 
@@ -149,7 +158,7 @@ void game_gen_map(GameState_ptr gs)
     XY first_pos = first->map_pos;
     //  flood fill the map with sections
     XY_QUEUE q = {0};
-    xy_queue_init(&q, MAP_SIZE * MAP_SIZE);
+    xy_queue_init(&q, MAP_COL_X * MAP_LINE_Y);
     xy_queue_push(&q, &first_pos);
     int tiles_set = 0;
     while (!xy_queue_is_empty(&q))
@@ -160,7 +169,7 @@ void game_gen_map(GameState_ptr gs)
         int y = pos->y;
 
         // if this tile has been place, or is off grid, skip it
-        if (x < 0 || y < 0 || x >= MAP_SIZE || y >= MAP_SIZE)
+        if (x < 0 || y < 0 || x >= MAP_COL_X || y >= MAP_LINE_Y)
             continue;
 
         TILE *t = game_get_tile_at_pos(&map, y, x);
@@ -199,9 +208,9 @@ void game_init(GameState_ptr gs)
     gs->sections.count = 0;
     gs->sections.s = NULL;
 
-    for (int rows = 0; rows < MAP_SIZE; rows++)
+    for (int rows = 0; rows < MAP_LINE_Y; rows++)
     {
-        for (int cols = 0; cols < MAP_SIZE; cols++)
+        for (int cols = 0; cols < MAP_COL_X; cols++)
         {
             TILE *tile = game_get_tile_at_pos(&gs->map, rows, cols);
             tile->map_pos.x = cols;
@@ -271,40 +280,40 @@ int game_proc_keypress(GameState_ptr gs, int ch)
 
 #ifdef PC_MODE
     case KEY_UP:
-    case 8:
+    case '8':
         gs->player.pos.y--;
         break;
     case KEY_DOWN:
-    case 2:
+    case '2':
         gs->player.pos.y++;
         break;
 
     case KEY_LEFT:
-    case 4:
+    case '4':
         gs->player.pos.x--;
         break;
 
     case KEY_RIGHT:
-    case 6:
+    case '6':
         gs->player.pos.x++;
         break;
 
-    case 7:
+    case '7':
         gs->player.pos.x--;
         gs->player.pos.y--;
         break;
 
-    case 9:
+    case '9':
         gs->player.pos.x++;
         gs->player.pos.y--;
         break;
 
-    case 1:
+    case '1':
         gs->player.pos.x--;
         gs->player.pos.y++;
         break;
 
-    case 3:
+    case '3':
         gs->player.pos.x++;
         gs->player.pos.y++;
         break;

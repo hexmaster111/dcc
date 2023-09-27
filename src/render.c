@@ -134,10 +134,10 @@ void render_tile(TILE *tile, int c_y, int c_x)
 
 void render_map(MAP *map, WIN *win)
 {
-    for (int i = 0; i < MAP_SIZE * MAP_SIZE; i++)
+    for (int i = 0; i < MAP_COL_X * MAP_LINE_Y; i++)
     {
-        int lin = i / MAP_SIZE;
-        int col = i % MAP_SIZE;
+        int lin = i / MAP_COL_X;
+        int col = i % MAP_COL_X;
         TILE *tile = game_get_tile_at_pos(map, lin, col);
         ASSUME(tile != NULL);
         //+1 on the px for the border
@@ -152,7 +152,7 @@ void render_gamestate(GameState_ptr gs, RENDER *r)
 {
     render_map(&gs->map, &r->win);
 
-    // Do last
+    // Do last - to prevent it being draw over
     attron(COLOR_PAIR(1));
     mvprintw(gs->player.pos.y + r->win.starty,
              gs->player.pos.x + r->win.startx, "@");

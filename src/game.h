@@ -86,13 +86,15 @@ typedef struct tile_t
     int8_t layout_flags;
 } TILE;
 
-#define MAP_SIZE 3
+// #define MAP_SIZE 3
+#define MAP_LINE_Y 5
+#define MAP_COL_X 16
 
 typedef struct map_t
 {
 
     // map[LINE Y][COL X]
-    TILE tiles[MAP_SIZE][MAP_SIZE];
+    TILE tiles[MAP_LINE_Y][MAP_COL_X];
 } MAP;
 
 /// @brief Game state
