@@ -1,4 +1,6 @@
 #include "game.h"
+#define TILE_DICT_IMPLEMENTATION
+#include "tile_dict.h"
 #include "assume.h"
 #include "global.h"
 #include "tile_queue.h"
@@ -85,14 +87,22 @@ void map_array_i_to_xy_pos(int i, XY *pos)
     pos->y = i / MAP_COL_X;
 }
 
+/// @brief Chooses a random section from the list of sections that can be placed here
+/// @param t NULLABLE OUT - The tile to place a section on, NULL on unable to place
+/// @param above  IN - The tile above this one
+/// @param below  IN - The tile below this one
+/// @param left  IN - The tile to the left of this one
+/// @param right  IN - The tile to the right of this one
+/// @param sections  IN - The list of sections to choose from
 void tile_choose_section(TILE *t,
-                         TILE *above, TILE *below,
-                         TILE *left, TILE *right,
+                         TILE *above,
+                         TILE *below,
+                         TILE *left,
+                         TILE *right,
                          SECTION_LIST *sections)
 {
     ASSUME(t != NULL);
     ASSUME(sections != NULL);
-
     // A sections genkey is a bitfield that is essentaly its socket layout,
     // if two size match, they can be placed next to each other
 
@@ -120,6 +130,13 @@ void tile_choose_section(TILE *t,
         section_list_add(&can_place, s);
     }
 
+    // No Section can be placed here, so restart the map generation
+    if (!(can_place.count > 0))
+    {
+        t->section = NULL;
+        return;
+    }
+
     // if we have no sections that can be placed here, we have a problem
     ASSUME(can_place.count > 0);
 
@@ -132,6 +149,7 @@ void tile_choose_section(TILE *t,
 
 void game_gen_map(GameState_ptr gs)
 {
+restart:
     MAP map = {0};
 
     ASSUME(gs != NULL);
@@ -184,7 +202,19 @@ void game_gen_map(GameState_ptr gs)
         TILE *right = game_get_tile_at_pos(&map, y, x + 1);
 
         tile_choose_section(t, above, below, left, right, &gs->sections);
-        // t->section = &gs->sections.s[2];
+
+        if (t->section == NULL)
+        {
+            // restart the map generation
+
+            glog_printf("Restarting map generation!\n");
+            goto restart;
+        }
+
+        ASSUME(t->section != NULL);
+
+        // TODO:
+        //  ASSUME(t->section->tile_data != NULL);
 
         tile_set_placed(t);
         tiles_set++;

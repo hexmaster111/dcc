@@ -30,6 +30,13 @@ void xy_queue_free(XY_QUEUE *q)
     free(q->tiles);
 }
 
+void xy_queue_clear(XY_QUEUE *q)
+{
+    ASSUME(q != NULL);
+    q->count = 0;
+    memset(q->tiles, 0, sizeof(XY *) * q->max_count);
+}
+
 void xy_queue_push(XY_QUEUE *q, XY *t)
 {
     ASSUME(q != NULL);

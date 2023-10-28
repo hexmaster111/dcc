@@ -139,7 +139,8 @@ void render_map(MAP *map, WIN *win)
         int lin = i / MAP_COL_X;
         int col = i % MAP_COL_X;
         TILE *tile = game_get_tile_at_pos(map, lin, col);
-        ASSUME(tile != NULL);
+        ASSUME(tile != NULL && "tile is null");
+        ASSUME(tile->section != NULL && "no section assigned to tile");
         //+1 on the px for the border
         //+ win pos for window offset
         render_tile(tile,
