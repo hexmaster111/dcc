@@ -1,5 +1,5 @@
 
-#include "game.h"
+#include "tile_hashmap.h"
 #include "global.h"
 #include "assume.h"
 #include "render.h"

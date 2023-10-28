@@ -17,9 +17,9 @@
 @   2 -> FLOOR 
 @   3 -> ITEM - Passable, has a id char assigned 'f' on this tile
 @  ICON  USE  % SPAWN
-@[obj('#, 1, 100)]
-@[obj('., 2, 100)]
-@[obj('f, 3, 25)]
+[obj('#, 1, 100)]
+[obj('., 2, 100)]
+[obj('f, 3, 25)]
 
 @ !!!### TODO REMOVE THIS EXIT THING AND USE THE TILE!!!###
 @Exit Enum

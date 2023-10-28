@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include "tile_dict.h"
+#include "tile_hashmap.h"
 
 #define newline '\n'
 

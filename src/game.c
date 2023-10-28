@@ -1,6 +1,6 @@
 #include "game.h"
 #define TILE_DICT_IMPLEMENTATION
-#include "tile_dict.h"
+#include "tile_hashmap.h"
 #include "assume.h"
 #include "global.h"
 #include "tile_queue.h"

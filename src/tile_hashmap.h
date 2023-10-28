@@ -1,6 +1,6 @@
 #ifndef __TILE_HASHMAP_H__
 #define __TILE_HASHMAP_H__
-
+#include <stdint.h>
 typedef struct
 {
     char c; // Character to render and identify the tile
