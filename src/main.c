@@ -7,8 +7,6 @@
 #include <string.h>
 #include <time.h>
 
-// WINSIZE is 50x30
-
 int main(int argc, char *argv[])
 {
   int ch;
@@ -42,7 +40,7 @@ regen:
     {
       goto regen;
     }
-    if (game_proc_keypress(&gs, ch))
+    else if (game_proc_keypress(&gs, ch))
     {
       break;
     };
