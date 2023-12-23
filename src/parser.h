@@ -40,6 +40,9 @@ struct building_args
 // Swap for parse debugging info
 // #define parse_dgb(...) glog_printf(__VA_ARGS__)
 #define parse_dgb(...)
+#define dbg(...) glog_printf(__VA_ARGS__)
+
+err parse_tile(struct parser_state *p, FILE *f, SECTION *section);
 
 err parse_gl_section_gen(struct parser_state *p, FILE *f, SECTION *section)
 {
@@ -155,6 +158,9 @@ err parse_building(struct parser_state *p, FILE *f, SECTION *section)
     glog_printf("Building had %d chars expected got %d\n",
                 expected_chars_count,
                 curr_ch);
+
+    ASSUME(section->render_data != NULL);
+
     return NULL;
 }
 
@@ -354,10 +360,18 @@ err __load_single_section(SECTION *section, char *file)
             check_parse_error("section_gen");
         }
 
+        if (match("tile"))
+        {
+            err = parse_tile(&p, f, section);
+            check_parse_error("tile");
+        }
+
 #undef check_parse_error
 #undef match
     }
 
+    ASSUME(section->bounds.w != 0 && section->bounds.h != 0);
+    ASSUME(section->render_data != NULL);
     parse_dgb("Done parsing file\n");
 
 end:
@@ -369,6 +383,13 @@ end:
     glog_printf("render data:\n%s", section->render_data);
     fclose(f);
     return err;
+}
+
+err parse_tile(struct parser_state *p, FILE *f, SECTION *section)
+{
+    // TODO: fill section->tile_dict
+    ASSUME(p->header_item_type != NULL);
+    return NULL;
 }
 
 void parse_load_section(GameState_ptr gs, char *folder)

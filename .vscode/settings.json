@@ -23,7 +23,8 @@
         "array": "cpp",
         "string_view": "cpp",
         "initializer_list": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "tile_hashmap.h": "c"
     },
     "cmake.configureOnOpen": true
 }

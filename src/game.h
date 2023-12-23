@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#include "tile_hashmap.h"
+
 #define newline '\n'
 
 typedef struct point_t
@@ -84,6 +86,7 @@ typedef struct tile_t
     SECTION *section;
     XY map_pos;
     int8_t layout_flags;
+    TILE_HASHMAP *tile_data;
 } TILE;
 
 // #define MAP_SIZE 3
